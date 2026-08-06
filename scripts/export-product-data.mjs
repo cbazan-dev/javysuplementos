@@ -7,6 +7,9 @@
    Uso:
      node scripts/export-product-data.mjs            # escribe js/product-data.js
      node scripts/export-product-data.mjs --dry-run  # solo muestra el resumen
+     node scripts/export-product-data.mjs --input datos.json
+         # usa un JSON local en vez de Supabase (entornos sin salida de red).
+         # Formato: { "products": [...], "product_flavors": [...] }
 
    IMPORTANTE:
    - Revisá SIEMPRE el `git diff` antes de commitear. Este archivo es lo que ve
@@ -23,6 +26,8 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DRY_RUN = process.argv.includes("--dry-run");
+const INPUT_INDEX = process.argv.indexOf("--input");
+const INPUT_FILE = INPUT_INDEX > -1 ? process.argv[INPUT_INDEX + 1] : null;
 
 const HEADER = `const PRODUCT_PLACEHOLDER_IMAGE = "img/products/product-placeholder.svg";
 
@@ -123,12 +128,23 @@ function serialize(p) {
   return `  product({ ${parts.join(", ")} }),`;
 }
 
-async function main() {
+async function loadData() {
+  if (INPUT_FILE) {
+    const raw = JSON.parse(await readFile(INPUT_FILE, "utf8"));
+    const products = [...(raw.products || [])].sort((a, b) =>
+      String(a.category || "").localeCompare(String(b.category || ""), "es")
+      || String(a.name || "").localeCompare(String(b.name || ""), "es"));
+    return [products, raw.product_flavors || []];
+  }
   const cfg = await readSupabaseConfig();
-  const [products, flavors] = await Promise.all([
+  return Promise.all([
     sb("products?select=*&order=category.asc,name.asc", cfg),
     sb("product_flavors?select=product_id,name,available,is_available", cfg),
   ]);
+}
+
+async function main() {
+  const [products, flavors] = await loadData();
 
   // Sabores disponibles por producto.
   const flavorsByProduct = new Map();

@@ -809,3 +809,64 @@
     transition: none;
   }
 }
+
+/* ===== Productos relacionados de la misma familia =====================
+   Cierra el callejón sin salida de la ficha: desde un producto concreto no
+   había camino de vuelta a su categoría. Mobile primero: 2 columnas, 4 en
+   pantallas grandes. */
+.pdp__related {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--line);
+}
+
+.pdp__related[hidden] {
+  display: none;
+}
+
+.pdp__related-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.pdp__related-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pdp__related-link {
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  /* Objetivo táctil cómodo sin agrandar el texto. */
+  padding: var(--sp-2);
+  margin: calc(var(--sp-2) * -1);
+  border-radius: var(--radius-sm);
+}
+
+.pdp__related-link:hover {
+  text-decoration: underline;
+}
+
+.pdp__related-link:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.pdp__related-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+@media (min-width: 768px) {
+  .pdp__related-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--sp-4);
+  }
+}

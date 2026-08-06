@@ -3,12 +3,12 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-bf8832f0";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-bf8832f0";
-import { $, esc, ico } from "../helpers.js?v=adm-bf8832f0";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-bf8832f0";
-import { requestRerender } from "../shell.js?v=adm-bf8832f0";
-import { reloadProducts } from "../data.js?v=adm-bf8832f0";
+import { state, catById, families, typesOf } from "../state.js?v=adm-b0d853ee";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-b0d853ee";
+import { $, esc, ico } from "../helpers.js?v=adm-b0d853ee";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-b0d853ee";
+import { requestRerender } from "../shell.js?v=adm-b0d853ee";
+import { reloadProducts } from "../data.js?v=adm-b0d853ee";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
@@ -45,7 +45,11 @@ export function openProductDrawer(product, opts = {}) {
     const cat = catById(data.category_id);
     if (cat) {
       if (cat.parent_id) { typeId = cat.id; famId = cat.parent_id; }
-      else { famId = cat.id; }
+      // Un producto ya guardado colgando de la familia se abre con "Sin
+      // subcategoría" preseleccionado: la decisión ya está tomada y no tiene
+      // sentido bloquear una edición de precio por eso. Los sueltos se
+      // detectan con el filtro "Sin subcategoría" y se reparten en lote.
+      else { famId = cat.id; typeId = "none"; }
     }
   }
   const draftImageFile = { file: null, cleared: false };
@@ -71,7 +75,14 @@ export function openProductDrawer(product, opts = {}) {
   }
   function typeOptions() {
     const ts = famId ? typesOf(famId) : [];
-    return `<option value="">${famId ? "Elegir…" : "—"}</option>` + ts.map((t) => `<option value="${esc(t.id)}"${t.id === typeId ? " selected" : ""}>${esc(t.name)}</option>`).join("");
+    // "none" es la opción explícita para dejarlo colgado de la familia. Sin
+    // ella el campo se saltaba por omisión, y así terminó la mitad del
+    // catálogo sin subcategoría.
+    const noneOpt = ts.length
+      ? `<option value="none"${typeId === "none" ? " selected" : ""}>Sin subcategoría</option>`
+      : "";
+    return `<option value="">${famId ? "Elegir…" : "—"}</option>${noneOpt}`
+      + ts.map((t) => `<option value="${esc(t.id)}"${t.id === typeId ? " selected" : ""}>${esc(t.name)}</option>`).join("");
   }
 
   // Secciones del modal: [key, número, etiqueta corta (índice), título largo (encabezado)].
@@ -118,7 +129,7 @@ export function openProductDrawer(product, opts = {}) {
               ${field("Marca", false, `<input class="ad-input" data-f="brand" value="${esc(data.brand)}" placeholder="Ej. APS Nutrition" />`)}
               ${field("Presentación", false, `<input class="ad-input" data-f="presentation" value="${esc(data.presentation)}" placeholder="Ej. 5 lb · 300 g · 30 serv" />`)}
               ${field("Categoría", true, `<select class="ad-select" data-f="family" aria-label="Categoría">${familyOptions()}</select>`, "family")}
-              ${field("Subcategoría", false, `<select class="ad-select" data-f="type" aria-label="Subcategoría" ${famId ? "" : "disabled"}>${typeOptions()}</select>`)}
+              ${field("Subcategoría", true, `<select class="ad-select" data-f="type" aria-label="Subcategoría" ${famId ? "" : "disabled"}>${typeOptions()}</select>`, "type")}
             </div>
           `)}
           ${sec("precio", `
@@ -476,21 +487,26 @@ export function openProductDrawer(product, opts = {}) {
     return {
       name: !fEl("name").value.trim() ? "El nombre es obligatorio" : "",
       family: !famId ? "Elegí una familia" : "",
+      // Si la familia tiene subcategorías, hay que decidir: una de ellas o
+      // "Sin subcategoría" a propósito. Dejarlo vacío es lo que vació el
+      // segundo nivel del catálogo público.
+      type: famId && typesOf(famId).length && !typeId
+        ? "Elegí una subcategoría (o marcá “Sin subcategoría”)"
+        : "",
       price: !price ? "El precio es obligatorio" : (isNaN(+price) || +price <= 0) ? "Precio inválido" : "",
       old_price: old && (isNaN(+old) || +old <= +price) ? "Debe ser mayor al precio actual" : "",
     };
   }
   function validate() {
     const errs = errors();
-    ["name", "family", "price", "old_price"].forEach((k) => {
+    ["name", "family", "type", "price", "old_price"].forEach((k) => {
       const slot = overlay.querySelector(`[data-err="${k}"]`);
-      const inputName = k === "family" ? "family" : k;
-      const input = overlay.querySelector(`[data-f="${inputName}"]`);
+      const input = overlay.querySelector(`[data-f="${k}"]`);
       if (slot) slot.innerHTML = errs[k] ? `${ico("x")}${esc(errs[k])}` : "";
       if (input) input.classList.toggle(input.tagName === "SELECT" ? "ad-select--invalid" : "ad-input--invalid", !!errs[k]);
     });
     // punto rojo en el índice de las secciones con errores
-    const SEC_OF = { name: "esencial", family: "esencial", price: "precio", old_price: "precio" };
+    const SEC_OF = { name: "esencial", family: "esencial", type: "esencial", price: "precio", old_price: "precio" };
     const secWithError = {};
     Object.keys(errs).forEach((k) => { if (errs[k]) secWithError[SEC_OF[k]] = true; });
     railItems.forEach((b) => b.classList.toggle("has-error", !!secWithError[b.getAttribute("data-go-sec")]));
@@ -575,8 +591,9 @@ async function saveProduct(ctx) {
     imageUrl = PLACEHOLDER;
   }
 
-  // categoría: el tipo (hoja) si existe, si no la familia
-  const leafId = typeId || famId || null;
+  // categoría: el tipo (hoja) si se eligió uno; "none" es la decisión explícita
+  // de dejarlo en la familia.
+  const leafId = (typeId && typeId !== "none" ? typeId : famId) || null;
   const leafCat = leafId ? catById(leafId) : null;
 
   const payload = {

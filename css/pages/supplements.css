@@ -150,6 +150,14 @@
   -ms-overflow-style: none;
   padding-bottom: 4px;
   -webkit-overflow-scrolling: touch;
+  /* `proximity` y no `mandatory`: alinea los chips sin pelearse con el arrastre
+     libre de enableDragScroll(). */
+  scroll-snap-type: x proximity;
+  scroll-padding-left: 4px;
+}
+
+.catalog-filters > .catalog-filter {
+  scroll-snap-align: start;
 }
 
 .catalog-filters::-webkit-scrollbar {

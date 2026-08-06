@@ -5,19 +5,19 @@
    Mantiene un registro key → renderFn; las secciones piden re-render con
    requestRerender() en vez de llamarse entre sí.
    ============================================================================ */
-import { state } from "./state.js?v=adm-bf8832f0";
-import { NAV } from "./config.js?v=adm-bf8832f0";
-import { $, $$, esc, ico } from "./helpers.js?v=adm-bf8832f0";
-import { showViewError } from "./view.js?v=adm-bf8832f0";
-import { renderDashboard } from "./sections/dashboard.js?v=adm-bf8832f0";
-import { renderProducts } from "./sections/products.js?v=adm-bf8832f0";
-import { renderHome } from "./sections/home.js?v=adm-bf8832f0";
-import { renderLeads } from "./sections/leads.js?v=adm-bf8832f0";
-import { renderCategories } from "./sections/categories.js?v=adm-bf8832f0";
-import { renderCombos } from "./sections/combos.js?v=adm-bf8832f0";
-import { renderAccess } from "./sections/access.js?v=adm-bf8832f0";
-import { renderSettings } from "./sections/settings.js?v=adm-bf8832f0";
-import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-bf8832f0";
+import { state } from "./state.js?v=adm-b0d853ee";
+import { NAV } from "./config.js?v=adm-b0d853ee";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-b0d853ee";
+import { showViewError } from "./view.js?v=adm-b0d853ee";
+import { renderDashboard } from "./sections/dashboard.js?v=adm-b0d853ee";
+import { renderProducts } from "./sections/products.js?v=adm-b0d853ee";
+import { renderHome } from "./sections/home.js?v=adm-b0d853ee";
+import { renderLeads } from "./sections/leads.js?v=adm-b0d853ee";
+import { renderCategories } from "./sections/categories.js?v=adm-b0d853ee";
+import { renderCombos } from "./sections/combos.js?v=adm-b0d853ee";
+import { renderAccess } from "./sections/access.js?v=adm-b0d853ee";
+import { renderSettings } from "./sections/settings.js?v=adm-b0d853ee";
+import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-b0d853ee";
 
 const renderers = {
   dashboard: renderDashboard, products: renderProducts,

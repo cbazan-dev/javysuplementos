@@ -2,11 +2,11 @@
    Drawer de combos: builder de filas (producto/sabor/cantidad), cálculo de
    ahorro vs. precio de lista, imagen y guardado de items.
    ============================================================================ */
-import { state } from "../state.js?v=adm-bf8832f0";
-import { PLACEHOLDER } from "../config.js?v=adm-bf8832f0";
-import { $, esc, ico, peso, wireImageFallbacks } from "../helpers.js?v=adm-bf8832f0";
-import { field, affix, switchRow, toast } from "../ui.js?v=adm-bf8832f0";
-import { requestRerender } from "../shell.js?v=adm-bf8832f0";
+import { state } from "../state.js?v=adm-b0d853ee";
+import { PLACEHOLDER } from "../config.js?v=adm-b0d853ee";
+import { $, esc, ico, peso, wireImageFallbacks } from "../helpers.js?v=adm-b0d853ee";
+import { field, affix, switchRow, toast } from "../ui.js?v=adm-b0d853ee";
+import { requestRerender } from "../shell.js?v=adm-b0d853ee";
 
 export function openComboDrawer(combo) {
   const isNew = !combo;

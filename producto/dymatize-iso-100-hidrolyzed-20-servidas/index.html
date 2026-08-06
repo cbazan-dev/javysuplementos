@@ -27,7 +27,7 @@
     <meta name="twitter:description" content="Aislado de suero hidrolizado con 25 g de proteína y 120 calorías.">
     <meta name="twitter:image" content="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783902024630-iso100-dymatize-dunkin-glazed-donut-20-servings.webp">
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"ISO 100 HIDROLYZED","image":"https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783902024630-iso100-dymatize-dunkin-glazed-donut-20-servings.webp","description":"Aislado de suero hidrolizado con 25 g de proteína y 120 calorías.","url":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/","brand":{"@type":"Brand","name":"Dymatize"},"offers":{"@type":"Offer","price":"40.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"ISO (aislada)","item":"https://javysuplementos.com/categoria/iso-aislada/"},{"@type":"ListItem","position":3,"name":"ISO 100 HIDROLYZED","item":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"ISO 100 HIDROLYZED","image":"https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783902024630-iso100-dymatize-dunkin-glazed-donut-20-servings.webp","description":"Aislado de suero hidrolizado con 25 g de proteína y 120 calorías.","url":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/","brand":{"@type":"Brand","name":"Dymatize"},"offers":{"@type":"Offer","price":"40.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"Proteínas","item":"https://javysuplementos.com/categoria/proteinas/"},{"@type":"ListItem","position":3,"name":"ISO (aislada)"},{"@type":"ListItem","position":4,"name":"ISO 100 HIDROLYZED","item":"https://javysuplementos.com/producto/dymatize-iso-100-hidrolyzed-20-servidas/"}]}]}</script>
 
     <link rel="icon" type="image/png" sizes="32x32" href="/img/icons/javy-favicon-32x32.png?v=2" />
     <link rel="icon" type="image/png" sizes="any" href="/img/icons/javy-favicon-cejas-color-correcto-1024.png?v=2" />
@@ -35,13 +35,13 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#050709" />
     <link rel="stylesheet" href="/css/styles.css?v=fase2-ui" />
-    <link rel="stylesheet" href="/css/components/nav.css?v=fase2-ui" />
+    <link rel="stylesheet" href="/css/components/nav.css?v=cat-nav" />
     <link rel="stylesheet" href="/css/components/auth.css?v=session-state" />
     <link rel="stylesheet" href="/css/tokens.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cart.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cards.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/dropdown.css?v=4" />
-    <link rel="stylesheet" href="/css/pages/product.css?v=product-detail-manual" />
+    <link rel="stylesheet" href="/css/pages/product.css?v=cat-nav" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -55,11 +55,11 @@
     <script src="/js/product-urls.js?v=seo-urls" defer></script>
     <script src="/js/db.js?v=no-img-fallback" defer></script>
     <script src="/js/auth.js?v=session-state" defer></script>
-    <script src="/js/icons.js?v=icons" defer></script>
+    <script src="/js/icons.js?v=cat-icons" defer></script>
     <script src="/js/dropdown.js?v=4" defer></script>
     <script src="/js/cart.js?v=fase2-ui" defer></script>
-    <script src="/js/product-page.js?v=product-detail-manual" defer></script>
-    <script src="/js/include-nav.js?v=admin-auth" defer></script>
+    <script src="/js/product-page.js?v=cat-nav" defer></script>
+    <script src="/js/include-nav.js?v=cat-nav" defer></script>
   </head>
   <body>
     <div id="site-header"></div>
@@ -68,6 +68,8 @@
 
         <nav class="pdp__breadcrumb" aria-label="Ruta de navegación">
           <a href="/supplements-page.html">Catálogo</a>
+          <span class="pdp__breadcrumb-sep">/</span>
+          <a href="/categoria/proteinas/" data-breadcrumb-family>Proteínas</a>
           <span class="pdp__breadcrumb-sep">/</span>
           <span id="pdp-breadcrumb-cat">ISO (aislada)</span>
         </nav>
@@ -100,7 +102,7 @@
               </div>
               <div>
                 <dt>Categoría</dt>
-                <dd id="prod-category"><a href="/categoria/iso-aislada/">ISO (aislada)</a></dd>
+                <dd id="prod-category"><a href="/categoria/proteinas/">Proteínas</a> · ISO (aislada)</dd>
               </div>
             </dl>
 
@@ -128,30 +130,39 @@
             </button>
           </section>
 
-          <section class="pdp__details" aria-labelledby="pdp-details-heading" hidden>
+          <section class="pdp__details" aria-labelledby="pdp-details-heading">
             <div class="pdp__details-head">
               <p class="pdp__details-kicker">Conocé el producto</p>
               <h2 id="pdp-details-heading" class="pdp__details-title">Información completa</h2>
             </div>
 
             <div class="pdp__details-grid">
-              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading" hidden>
+              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading">
                 <h3 id="pdp-description-heading">Descripción</h3>
-                <div id="tab-descripcion" class="pdp__prose"></div>
+                <div id="tab-descripcion" class="pdp__prose"><p>ISO 100 es un aislado de proteína de suero hidrolizado: las proteínas llegan parcialmente fragmentadas, lo que acelera la digestión. Cada servida aporta 25 gramos de proteína, 120 calorías, 2 gramos de carbohidratos y 5,5 gramos de aminoácidos ramificados, con menos de 0,5 gramos de lactosa. Es de las opciones más usadas para el momento posterior al entrenamiento.</p></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading" hidden>
+              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading">
                 <h3 id="pdp-benefits-heading">Beneficios</h3>
-                <div id="tab-beneficios" class="pdp__benefits"></div>
+                <div id="tab-beneficios" class="pdp__benefits"><div class="pdp__benefit">Aporta 25 gramos de proteína en solo 120 calorías por servida.</div><div class="pdp__benefit">Hidrolizado: se digiere más rápido que un aislado convencional.</div><div class="pdp__benefit">Menos de 0,5 gramos de lactosa por servida.</div><div class="pdp__benefit">Suma 5,5 gramos de aminoácidos ramificados en cada toma.</div></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading" hidden>
+              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading">
                 <h3 id="pdp-usage-heading">Cómo usar</h3>
-                <ol id="tab-uso" class="pdp__usage"></ol>
+                <ol id="tab-uso" class="pdp__usage"><li>Mezclar una medida colmada con 150 a 180 ml de agua, leche u otra bebida.</li><li>Se usa habitualmente al terminar el entrenamiento.</li><li>Seguir la dosis indicada en la etiqueta del envase.</li></ol>
               </section>
             </div>
           </section>
         </div>
+
+        <!-- Lo rellena js/product-page.js con productos de la misma familia. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
 
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">

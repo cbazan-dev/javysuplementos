@@ -949,3 +949,79 @@ body.ad-body { min-height: 100vh; }
   /* las tablas de informe SÍ se muestran en móvil (con scroll), a diferencia de .ad-table-wrap */
   .ad-rep-scroll .ad-table { min-width: 640px; }
 }
+
+/* ---- selección múltiple de productos + acciones en lote ----------------- */
+/* La barra aparece solo con algo seleccionado: no ocupa espacio permanente ni
+   compite con los filtros. */
+.ad-bulkbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--pb-brand);
+  border-radius: var(--ad-radius);
+  background: var(--pb-blue-tint-12);
+}
+.ad-bulkbar__count { font-size: 0.86rem; font-weight: 700; color: var(--pb-text); }
+.ad-bulkbar__select { min-width: 200px; }
+.ad-bulkbar .ad-link-btn { margin-left: auto; }
+
+/* Objetivo táctil de 44px sin agrandar la casilla visible. */
+.ad-check {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -10px;
+  cursor: pointer;
+}
+.ad-check input { width: 17px; height: 17px; accent-color: var(--pb-brand); cursor: pointer; }
+.ad-table tr.is-selected { background: var(--pb-blue-tint-08); }
+.ad-prod-card.is-selected { border-color: var(--pb-brand); background: var(--pb-blue-tint-08); }
+
+/* ---- conteo por subcategoría y aviso de productos sueltos --------------- */
+.ad-type-chip__name {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.ad-type-chip__name:hover { text-decoration: underline; }
+.ad-type-chip__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--pb-white-06);
+  color: var(--pb-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+/* Una subcategoría vacía no se oculta: se atenúa, para que se vea que existe
+   y que nadie la está usando. */
+.ad-type-chip.is-empty { opacity: 0.55; }
+.ad-type-chip.is-empty .ad-type-chip__count { color: var(--pb-muted-2); }
+
+/* Convierte un dato invisible ("22 sin subcategoría") en una tarea de un clic. */
+.ad-cat__loose {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--pb-amber);
+  border-radius: 999px;
+  background: var(--pb-amber-tint-12);
+  color: var(--pb-amber-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ad-cat__loose:hover { background: var(--pb-amber); color: var(--pb-brand-ink); }
+.ad-cat__loose:focus-visible { outline: 2px solid var(--pb-brand); outline-offset: 2px; }
+.ad-cat__loose .ad-ico { width: 14px; height: 14px; }

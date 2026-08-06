@@ -1,0 +1,151 @@
+/* ============================================================================
+   Home — puertas de entrada al catálogo.
+
+   "Compra por categoría" y "¿Cuál es tu objetivo?" viven justo debajo del hero
+   porque explorar por categoría es la necesidad de navegación primaria: antes
+   el único acceso a las familias era entrar al catálogo y descubrir el
+   carrusel horizontal de chips.
+
+   Mobile primero. Breakpoints del estándar propuesto: 480 / 768 / 1024.
+   ============================================================================ */
+
+.home-cats,
+.home-goals {
+  width: min(100% - 24px, 1180px);
+  margin-inline: auto;
+  margin-top: var(--sp-6);
+  /* El header es sticky (~96px): sin esto, saltar a #categorias desde un
+     enlace deja el título debajo de la barra. */
+  scroll-margin-top: 112px;
+}
+
+.home-cats[hidden],
+.home-goals[hidden] {
+  display: none;
+}
+
+/* ---- Grilla de categorías --------------------------------------------- */
+/* 2 columnas en móvil: con 8 familias son 4 filas escaneables de un vistazo,
+   sin scroll lateral ni chips escondidos fuera de pantalla. */
+.home-cats__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.home-cat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  /* Cómodo para el pulgar; muy por encima del mínimo de 44px. */
+  min-height: 104px;
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, var(--surface-1), var(--surface-2));
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.home-cat:hover {
+  border-color: var(--brand);
+  background: linear-gradient(160deg, var(--surface-3), var(--surface-1));
+  transform: translateY(-2px);
+}
+
+.home-cat:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+.home-cat__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--brand-tint);
+  color: var(--accent);
+}
+
+.home-cat__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.home-cat__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* El conteo es el que convierte una etiqueta en información: dice si vale la
+   pena entrar. */
+.home-cat__count {
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.home-cat--skeleton {
+  min-height: 104px;
+  border-radius: var(--radius-lg);
+}
+
+/* ---- Chips de objetivo ------------------------------------------------- */
+/* Hablan el idioma del cliente ("Ganar masa"), no el del catálogo. */
+.home-goals__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.home-goal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.home-goal:hover {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+
+.home-goal:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (min-width: 768px) {
+  .home-cats__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--sp-4);
+  }
+
+  .home-cat {
+    min-height: 128px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-cat {
+    transition: none;
+  }
+
+  .home-cat:hover {
+    transform: none;
+  }
+}

@@ -28,7 +28,7 @@ import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { buildSlugMap, productPath, categoryPath, slugTokens } from "./lib/product-slug.mjs";
+import { buildSlugMap, productPath, categoryPath, categoryFilterSlug, slugTokens } from "./lib/product-slug.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = "https://javysuplementos.com";
@@ -42,6 +42,20 @@ const PLACEHOLDER_IMAGE = "/img/products/product-placeholder.svg";
 // Una categoría con uno o dos productos es contenido pobre para Google: no
 // compite por nada y diluye el sitio. Esas quedan cubiertas por el catálogo.
 const MIN_PRODUCTS_PER_CATEGORY = 3;
+
+// URLs de subcategoría que se publicaron antes de acotar las páginas a
+// familias. Se mantienen como redirección permanente hacia su familia para no
+// devolver 404 a lo que ya está indexado. Mapea slug viejo -> nombre de familia.
+const LEGACY_CATEGORY_REDIRECTS = {
+  // Subcategorías que llegaron a tener página propia.
+  "whey": "Proteínas",
+  "iso-aislada": "Proteínas",
+  "mass-gainer": "Ganadores de Peso",
+  // Familias cuyo slug cambió al fusionar Energía dentro de Pre-entrenos
+  // (fase8-taxonomia.sql): el slug sale del nombre, y el nombre cambió.
+  "pre-entrenos": "Pre-entrenos y energía",
+  "energia-y-rendimiento": "Pre-entrenos y energía",
+};
 
 /* ------------------------------- utilidades ------------------------------ */
 
@@ -133,7 +147,7 @@ async function loadData() {
 function renderHead({ title, description, canonical, image, ogType, jsonLd, extraCss }) {
   const css = [
     "css/styles.css?v=fase2-ui",
-    "css/components/nav.css?v=fase2-ui",
+    "css/components/nav.css?v=cat-nav",
     "css/components/auth.css?v=session-state",
     "css/tokens.css?v=fase2-ui",
     "css/components/cart.css?v=fase2-ui",
@@ -192,13 +206,13 @@ const COMMON_SCRIPTS = [
   "/js/product-urls.js?v=seo-urls",
   "/js/db.js?v=no-img-fallback",
   "/js/auth.js?v=session-state",
-  "/js/icons.js?v=icons",
+  "/js/icons.js?v=cat-icons",
   "/js/dropdown.js?v=4",
   "/js/cart.js?v=fase2-ui",
 ];
 
 function renderScripts(extra = []) {
-  return [...COMMON_SCRIPTS, ...extra, "/js/include-nav.js?v=admin-auth"]
+  return [...COMMON_SCRIPTS, ...extra, "/js/include-nav.js?v=cat-nav"]
     .map((src) => `    <script src="${src}" defer></script>`)
     .join("\n");
 }
@@ -206,7 +220,9 @@ function renderScripts(extra = []) {
 /* ---------------------------- página de producto -------------------------- */
 
 function renderProductPage(product, ctx) {
-  const { slug, categoryName } = ctx;
+  const { slug, familyName, familySlug, typeName } = ctx;
+  // Etiqueta de categoría visible: la subcategoría es más precisa cuando existe.
+  const categoryName = typeName || familyName;
   const url = `${SITE}${productPath(slug)}`;
   const name = product.name || product.nombre || "Producto";
   const brand = product.brand || "";
@@ -255,25 +271,41 @@ function renderProductPage(product, ctx) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Catálogo", item: `${SITE}/supplements-page.html` },
-          ...(ctx.categorySlug
-            ? [{ "@type": "ListItem", position: 2, name: categoryName, item: `${SITE}${categoryPath(ctx.categorySlug)}` }]
+          ...(familySlug
+            ? [{ "@type": "ListItem", position: 2, name: familyName, item: `${SITE}${categoryPath(familySlug)}` }]
             : []),
-          { "@type": "ListItem", position: ctx.categorySlug ? 3 : 2, name, item: url },
+          ...(familySlug && typeName ? [{ "@type": "ListItem", position: 3, name: typeName }] : []),
+          { "@type": "ListItem", position: (familySlug ? 2 : 1) + (typeName && familySlug ? 2 : 1), name, item: url },
         ],
       },
     ],
   });
 
   const priceText = price > 0 ? `$${price.toFixed(2)}` : "Consultar precio";
-  const categoryLink = ctx.categorySlug
-    ? `<a href="${categoryPath(ctx.categorySlug)}">${escapeHTML(categoryName)}</a>`
+  const categoryLink = familySlug
+    ? `<a href="${categoryPath(familySlug)}">${escapeHTML(familyName)}</a>${typeName ? ` · ${escapeHTML(typeName)}` : ""}`
     : escapeHTML(categoryName);
+
+  // Breadcrumb de 3 tramos: Catálogo / Familia (enlazada) / Subcategoría. Sin
+  // esto la ficha era un callejón sin salida: mostraba "Whey" como texto plano,
+  // sin camino de vuelta a todas las proteínas.
+  // `data-breadcrumb-family` le avisa a js/product-page.js que este tramo ya
+  // está escrito, para que la hidratación no inserte un duplicado.
+  const breadcrumbTrail = familySlug
+    ? `
+          <a href="${categoryPath(familySlug)}" data-breadcrumb-family>${escapeHTML(familyName)}</a>${typeName
+        ? `
+          <span class="pdp__breadcrumb-sep">/</span>
+          <span id="pdp-breadcrumb-cat">${escapeHTML(typeName)}</span>`
+        : ""}`
+    : `
+          <span id="pdp-breadcrumb-cat">${escapeHTML(categoryName)}</span>`;
 
   return `<!DOCTYPE html>
 <html lang="es">
   <head>
-${renderHead({ title, description, canonical: url, image, ogType: "product", jsonLd, extraCss: ["css/pages/product.css?v=product-detail-manual"] })}
-${renderScripts(["/js/product-page.js?v=product-detail-manual"])}
+${renderHead({ title, description, canonical: url, image, ogType: "product", jsonLd, extraCss: ["css/pages/product.css?v=cat-nav"] })}
+${renderScripts(["/js/product-page.js?v=cat-nav"])}
   </head>
   <body>
     <div id="site-header"></div>
@@ -282,8 +314,7 @@ ${renderScripts(["/js/product-page.js?v=product-detail-manual"])}
 
         <nav class="pdp__breadcrumb" aria-label="Ruta de navegación">
           <a href="/supplements-page.html">Catálogo</a>
-          <span class="pdp__breadcrumb-sep">/</span>
-          <span id="pdp-breadcrumb-cat">${escapeHTML(categoryName)}</span>
+          <span class="pdp__breadcrumb-sep">/</span>${breadcrumbTrail}
         </nav>
 
         <div class="pdp__layout">
@@ -367,6 +398,15 @@ ${renderScripts(["/js/product-page.js?v=product-detail-manual"])}
           </section>
         </div>
 
+        <!-- Lo rellena js/product-page.js con productos de la misma familia. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
+
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">
             <span class="pdp__bar-strong pdp__bar-price" id="pdp-bar-price">${escapeHTML(priceText)}</span>
@@ -387,7 +427,29 @@ ${renderScripts(["/js/product-page.js?v=product-detail-manual"])}
 
 /* --------------------------- página de categoría -------------------------- */
 
-function renderCategoryPage(category, products, slugMap, categorySlug) {
+/* Página de redirección para una URL de categoría retirada. GitHub Pages no
+   permite 301 reales, así que se combina canonical + refresh + un enlace
+   visible por si el navegador bloquea el refresh. */
+function renderCategoryRedirect(oldSlug, familySlug, familyName) {
+  const target = categoryPath(familySlug);
+  return `<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHTML(familyName)} | Javy Suplementos</title>
+    <link rel="canonical" href="${SITE}${target}" />
+    <meta name="robots" content="noindex, follow" />
+    <meta http-equiv="refresh" content="0; url=${target}" />
+  </head>
+  <body>
+    <p>Esta categoría ahora vive en <a href="${target}">${escapeHTML(familyName)}</a>.</p>
+  </body>
+</html>
+`;
+}
+
+function renderCategoryPage(category, products, slugMap, categorySlug, types = []) {
   const url = `${SITE}${categoryPath(categorySlug)}`;
   const name = category.name || "Categoría";
   const title = `${name} en Panamá | Javy Suplementos`;
@@ -441,6 +503,20 @@ function renderCategoryPage(category, products, slugMap, categorySlug) {
     ],
   });
 
+  // Segundo nivel: las subcategorías con productos se ofrecen como filtro del
+  // catálogo. Reutiliza `.catalog-filter`, el mismo chip que el usuario ya vio
+  // en el catálogo, para que reconozca el patrón en vez de aprender otro.
+  const famFilter = categoryFilterSlug(category);
+  const typeChips = types.length
+    ? `
+      <nav class="catalog-filters catalog-filters--types" aria-label="Filtrar ${escapeHTML(name)} por tipo">
+${types
+        .map(({ category: type, count }) => `        <a class="catalog-filter catalog-filter--type" href="/supplements-page.html?fam=${encodeURIComponent(famFilter)}&amp;tipo=${encodeURIComponent(categoryFilterSlug(type))}" aria-label="${escapeHTML(`${type.name}, ${count} producto${count === 1 ? "" : "s"}`)}">${escapeHTML(type.name)}<span class="catalog-filter__count" aria-hidden="true">${count}</span></a>`)
+        .join("\n")}
+      </nav>
+`
+    : "";
+
   const cards = products
     .map((p) => {
       const productSlug = slugMap.get(String(p.id));
@@ -489,6 +565,7 @@ ${renderScripts()}
         </p>
         <p><a class="catalog-hero__link" href="/supplements-page.html">Ver el catálogo completo con filtros</a></p>
       </section>
+${typeChips}
 
       <section class="top-products__list" aria-label="Productos de ${escapeHTML(name)}">
 ${cards}
@@ -563,12 +640,38 @@ async function main() {
   }
 
   const categoriesById = new Map(allCategories.map((c) => [String(c.id), c]));
-  const productsByCategory = new Map();
+
+  // Una categoría es Familia (parent_id NULL) o Subcategoría. La familia de
+  // cualquiera de las dos: ella misma, o su padre.
+  const familyIdOf = (category) => String(category.parent_id || category.id);
+
+  // Productos agrupados por FAMILIA: los asignados a ella directamente MÁS los
+  // de todas sus subcategorías.
+  //
+  // Sin este rollup el conteo mide lo contrario de lo que debería: una familia
+  // bien categorizada (todos sus productos repartidos en subcategorías) suma 0
+  // y se queda sin página, mientras que una mal categorizada sí la obtiene — y
+  // la pierde en cuanto se ordenen los datos, rompiendo una URL ya indexada.
+  const productsByFamily = new Map();
   for (const p of products) {
-    const key = p.category_id ? String(p.category_id) : null;
-    if (!key) continue;
-    if (!productsByCategory.has(key)) productsByCategory.set(key, []);
-    productsByCategory.get(key).push(p);
+    if (!p.category_id) continue;
+    const category = categoriesById.get(String(p.category_id));
+    if (!category) continue;
+    const famId = familyIdOf(category);
+    if (!productsByFamily.has(famId)) productsByFamily.set(famId, []);
+    productsByFamily.get(famId).push(p);
+  }
+
+  // Subcategorías con productos dentro de cada familia, para los chips de la
+  // página de categoría (el segundo nivel sin multiplicar páginas).
+  const typesOfFamily = new Map();
+  for (const category of allCategories) {
+    if (!category.parent_id || category.is_active === false) continue;
+    const count = products.filter((p) => String(p.category_id) === String(category.id)).length;
+    if (!count) continue;
+    const famId = String(category.parent_id);
+    if (!typesOfFamily.has(famId)) typesOfFamily.set(famId, []);
+    typesOfFamily.get(famId).push({ category, count });
   }
 
   // El slug de la URL sale del nombre, no de la columna `slug` de Supabase,
@@ -578,7 +681,11 @@ async function main() {
   const categoryPages = [];
   for (const category of allCategories) {
     if (category.is_active === false) continue;
-    const count = productsByCategory.get(String(category.id))?.length || 0;
+    // Solo familias: las subcategorías viven como filtro dentro de la página de
+    // su familia, así la autoridad se concentra en pocas URLs fuertes en vez de
+    // dispersarse entre dos niveles que compiten entre sí.
+    if (category.parent_id) continue;
+    const count = productsByFamily.get(String(category.id))?.length || 0;
     if (count < MIN_PRODUCTS_PER_CATEGORY) continue;
 
     let slug = slugTokens(category.name).join("-");
@@ -611,10 +718,14 @@ async function main() {
   for (const product of products) {
     const slug = slugMap.get(String(product.id));
     const category = product.category_id ? categoriesById.get(String(product.category_id)) : null;
+    // El breadcrumb enlaza a la familia (la que tiene página); la subcategoría
+    // se muestra como último tramo, sin enlace propio.
+    const family = category ? categoriesById.get(familyIdOf(category)) : null;
     const html = renderProductPage(product, {
       slug,
-      categoryName: category?.name || product.category || "Suplementos",
-      categorySlug: category ? categorySlugs.get(String(category.id)) || null : null,
+      familyName: family?.name || product.category || "Suplementos",
+      familySlug: family ? categorySlugs.get(String(family.id)) || null : null,
+      typeName: category && category.parent_id ? category.name : "",
     });
     const dir = join(ROOT, "producto", slug);
     await mkdir(dir, { recursive: true });
@@ -622,12 +733,25 @@ async function main() {
   }
 
   for (const category of categoryPages) {
-    const list = productsByCategory.get(String(category.id)) || [];
+    const list = productsByFamily.get(String(category.id)) || [];
     const categorySlug = categorySlugs.get(String(category.id));
-    const html = renderCategoryPage(category, list, slugMap, categorySlug);
+    const types = typesOfFamily.get(String(category.id)) || [];
+    const html = renderCategoryPage(category, list, slugMap, categorySlug, types);
     const dir = join(ROOT, "categoria", categorySlug);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, "index.html"), html, "utf8");
+  }
+
+  // Las URLs de subcategoría que llegaron a publicarse antes de acotar las
+  // páginas a familias siguen vivas como redirección: producción es GitHub
+  // Pages tras Cloudflare, donde los `redirects` de vercel.json no aplican.
+  for (const [oldSlug, familyName] of Object.entries(LEGACY_CATEGORY_REDIRECTS)) {
+    const family = categoryPages.find((c) => c.name === familyName);
+    const familySlug = family ? categorySlugs.get(String(family.id)) : null;
+    if (!familySlug) continue;
+    const dir = join(ROOT, "categoria", oldSlug);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "index.html"), renderCategoryRedirect(oldSlug, familySlug, familyName), "utf8");
   }
 
   await writeFile(join(ROOT, "js/product-urls.js"), renderProductUrlsModule(slugMap, legacyMap), "utf8");

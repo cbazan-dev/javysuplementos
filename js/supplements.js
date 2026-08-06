@@ -102,6 +102,34 @@ function productInFamily(product, familyId) {
   return Boolean(cat && (cat.id === familyId || cat.parent_id === familyId));
 }
 
+/* --- Slugs de categoría en la URL -------------------------------------------
+   Los filtros viajan como ?fam=proteinas&tipo=whey en vez de con el UUID: así
+   el enlace se puede compartir, indexar y leer. Réplica de
+   `categoryFilterSlug()` en scripts/lib/product-slug.mjs (la columna `slug` de
+   Supabase arrastra prefijos internos "fam-"/"tipo-"). Si cambia allá, acá
+   también. */
+function catFilterSlug(category) {
+  return String(category?.slug || "").replace(/^(fam|tipo)-/, "") || slugify(category?.name || "");
+}
+
+// Valor a escribir en la URL para una familia o tipo ya elegido.
+function categoryParamValue(id) {
+  if (id === "todos" || id === "destacados") return id;
+  const cat = pubCategoryById(id);
+  return cat ? catFilterSlug(cat) : id;
+}
+
+// Inverso: acepta el slug público (proteinas), el slug crudo de Supabase
+// (fam-proteinas) y el UUID que usaban los enlaces anteriores.
+function categoryIdFromParam(value, isFamily) {
+  if (!value || value === "todos" || value === "destacados") return value || "todos";
+  const pool = categories.filter((c) => (isFamily ? !c.parent_id : Boolean(c.parent_id)));
+  const match = pool.find((c) => String(c.id) === value)
+    || pool.find((c) => catFilterSlug(c) === value)
+    || pool.find((c) => String(c.slug) === value);
+  return match ? match.id : "todos";
+}
+
 function productMatchesCategory(product) {
   if (useHierarchy()) {
     const fam = catalogState.family;
@@ -177,18 +205,54 @@ function getFlavorNames(product, availableOnly = false) {
     .map((flavor) => flavor.name);
 }
 
+/* Términos con los que el cliente busca cada familia, más allá de su nombre
+   exacto. Sin esto la búsqueda solo indexaba la hoja ("Whey", "ISO"), así que
+   "proteína" devolvía 14 de los 27 productos de Proteínas. La clave es el slug
+   público de la familia (ver catFilterSlug). */
+const FAMILY_SEARCH_TERMS = {
+  "proteinas": "proteina proteinas protein whey iso aislada aislado suero caseina casein vegana",
+  "ganadores": "ganador ganadores gainer mass subir peso masa volumen",
+  "creatina": "creatina creatinas monohidrato monohydrate",
+  "pre-entrenos": "pre entreno preentreno pre-workout preworkout energia pump",
+  "aminoacidos": "aminoacido aminoacidos amino bcaa eaa glutamina",
+  "quemadores": "quemador quemadores fat burner termogenico definicion adelgazar bajar grasa",
+  "energia": "energia energizante cafeina bebida carbohidrato",
+  "potenciadores": "potenciador potenciadores testosterona booster hormonal",
+  "salud": "salud bienestar vitamina vitaminas mineral minerales omega multivitaminico suplemento",
+};
+
+// El texto es estable mientras no se recarguen productos/categorías, y los
+// contadores reactivos re-filtran el catálogo entero varias veces por render:
+// sin caché cada tecleo repetiría miles de búsquedas en la jerarquía.
+const searchTextCache = new Map();
+
+// Texto indexado de un producto: incluye su familia y su subcategoría, no solo
+// la hoja, para que buscar el nombre de la familia traiga todo lo que cuelga
+// de ella.
 function getSearchText(product) {
-  return normalizeText([
+  const cached = searchTextCache.get(product.id);
+  if (cached !== undefined) return cached;
+
+  const own = pubCategoryById(product.category_id);
+  const family = own?.parent_id ? pubCategoryById(own.parent_id) : own;
+
+  const text = normalizeText([
     product.id,
     product.legacy_id,
     product.name,
     product.brand,
     product.category,
+    own?.name,
+    family?.name,
+    family ? FAMILY_SEARCH_TERMS[catFilterSlug(family)] : "",
     product.presentation,
     product.tags?.join(" "),
     product.goals?.join(" "),
     getFlavorNames(product).join(" "),
   ].join(" "));
+
+  searchTextCache.set(product.id, text);
+  return text;
 }
 
 function getFilteredProducts() {
@@ -407,6 +471,20 @@ function renderFamilyFilters() {
   catalogFilters.innerHTML = getFamilyItems()
     .map((f) => filterChip({ value: f.value, label: f.label, count: f.count, attr: "data-family", active: f.value === catalogState.family }))
     .join("");
+  revealActiveChip(catalogFilters);
+}
+
+// El carrusel deja las últimas familias fuera de pantalla: si la activa quedó
+// oculta (al llegar desde un enlace con ?fam=), centrarla para que el usuario
+// vea dónde está parado en vez de un carrusel aparentemente sin selección.
+function revealActiveChip(container) {
+  const active = container?.querySelector(".catalog-filter.is-active");
+  if (!active || container.scrollWidth <= container.clientWidth + 4) return;
+
+  const chipCenter = active.offsetLeft + active.offsetWidth / 2;
+  const target = Math.max(0, chipCenter - container.clientWidth / 2);
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  container.scrollTo({ left: target, behavior: reduceMotion ? "auto" : "smooth" });
 }
 
 function renderTypeFilters() {
@@ -627,7 +705,7 @@ function renderPanels() {
   if (catalogSidebarBody) renderFilterPanel(catalogSidebarBody, { includeCategory: true, includeSort: false });
   const sheetBody = filterSheetEl?.querySelector(".filter-sheet__body");
   if (sheetBody) {
-    renderFilterPanel(sheetBody, { includeCategory: false, includeSort: true });
+    renderFilterPanel(sheetBody, { includeCategory: true, includeSort: true });
     updateSheetApplyLabel();
   }
 }
@@ -1132,7 +1210,7 @@ function openFilterSheet() {
 
   const body = overlay.querySelector(".filter-sheet__body");
   bindFilterPanel(body); // grupos (orden, checkboxes, precio, toggle, categoría no) via handler unificado
-  renderFilterPanel(body, { includeCategory: false, includeSort: true });
+  renderFilterPanel(body, { includeCategory: true, includeSort: true });
   updateSheetApplyLabel();
 
   // El overlay solo gestiona cerrar/aplicar/limpiar; los grupos los maneja el panel.
@@ -1191,8 +1269,8 @@ function writeStateToURL(push = false) {
   const params = new URLSearchParams();
   if (catalogState.query.trim()) params.set("q", catalogState.query.trim());
   if (useHierarchy()) {
-    if (catalogState.family !== "todos") params.set("fam", catalogState.family);
-    if (catalogState.type !== "todos") params.set("tipo", catalogState.type);
+    if (catalogState.family !== "todos") params.set("fam", categoryParamValue(catalogState.family));
+    if (catalogState.type !== "todos") params.set("tipo", categoryParamValue(catalogState.type));
   } else if (catalogState.category !== "todos") {
     params.set("cat", catalogState.category);
   }
@@ -1218,8 +1296,8 @@ function readStateFromURL() {
   const params = new URLSearchParams(location.search);
   catalogState.query = params.get("q") || "";
   catalogState.category = params.get("cat") || "todos";
-  catalogState.family = params.get("fam") || "todos";
-  catalogState.type = params.get("tipo") || "todos";
+  catalogState.family = categoryIdFromParam(params.get("fam"), true);
+  catalogState.type = categoryIdFromParam(params.get("tipo"), false);
   const parseList = (v) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []);
   catalogState.goals = parseList(params.get("obj"));
   catalogState.brands = parseList(params.get("marca"));

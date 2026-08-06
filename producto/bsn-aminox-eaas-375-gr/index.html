@@ -27,7 +27,7 @@
     <meta name="twitter:description" content="EAA completo con 10 g de aminoácidos esenciales por servida, sin cafeína.">
     <meta name="twitter:image" content="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783901228114-aminox-eaas-bsn-25-servings.webp">
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"Aminox EAAs","image":"https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783901228114-aminox-eaas-bsn-25-servings.webp","description":"EAA completo con 10 g de aminoácidos esenciales por servida, sin cafeína.","url":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/","brand":{"@type":"Brand","name":"BSN"},"offers":{"@type":"Offer","price":"20.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"Aminox EAAs","item":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"Aminox EAAs","image":"https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-images/1783901228114-aminox-eaas-bsn-25-servings.webp","description":"EAA completo con 10 g de aminoácidos esenciales por servida, sin cafeína.","url":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/","brand":{"@type":"Brand","name":"BSN"},"offers":{"@type":"Offer","price":"20.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"Aminoácidos","item":"https://javysuplementos.com/categoria/aminoacidos/"},{"@type":"ListItem","position":3,"name":"EAA"},{"@type":"ListItem","position":4,"name":"Aminox EAAs","item":"https://javysuplementos.com/producto/bsn-aminox-eaas-375-gr/"}]}]}</script>
 
     <link rel="icon" type="image/png" sizes="32x32" href="/img/icons/javy-favicon-32x32.png?v=2" />
     <link rel="icon" type="image/png" sizes="any" href="/img/icons/javy-favicon-cejas-color-correcto-1024.png?v=2" />
@@ -35,13 +35,13 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#050709" />
     <link rel="stylesheet" href="/css/styles.css?v=fase2-ui" />
-    <link rel="stylesheet" href="/css/components/nav.css?v=fase2-ui" />
+    <link rel="stylesheet" href="/css/components/nav.css?v=cat-nav" />
     <link rel="stylesheet" href="/css/components/auth.css?v=session-state" />
     <link rel="stylesheet" href="/css/tokens.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cart.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cards.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/dropdown.css?v=4" />
-    <link rel="stylesheet" href="/css/pages/product.css?v=product-detail-manual" />
+    <link rel="stylesheet" href="/css/pages/product.css?v=cat-nav" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -55,11 +55,11 @@
     <script src="/js/product-urls.js?v=seo-urls" defer></script>
     <script src="/js/db.js?v=no-img-fallback" defer></script>
     <script src="/js/auth.js?v=session-state" defer></script>
-    <script src="/js/icons.js?v=icons" defer></script>
+    <script src="/js/icons.js?v=cat-icons" defer></script>
     <script src="/js/dropdown.js?v=4" defer></script>
     <script src="/js/cart.js?v=fase2-ui" defer></script>
-    <script src="/js/product-page.js?v=product-detail-manual" defer></script>
-    <script src="/js/include-nav.js?v=admin-auth" defer></script>
+    <script src="/js/product-page.js?v=cat-nav" defer></script>
+    <script src="/js/include-nav.js?v=cat-nav" defer></script>
   </head>
   <body>
     <div id="site-header"></div>
@@ -68,6 +68,8 @@
 
         <nav class="pdp__breadcrumb" aria-label="Ruta de navegación">
           <a href="/supplements-page.html">Catálogo</a>
+          <span class="pdp__breadcrumb-sep">/</span>
+          <a href="/categoria/aminoacidos/" data-breadcrumb-family>Aminoácidos</a>
           <span class="pdp__breadcrumb-sep">/</span>
           <span id="pdp-breadcrumb-cat">EAA</span>
         </nav>
@@ -100,7 +102,7 @@
               </div>
               <div>
                 <dt>Categoría</dt>
-                <dd id="prod-category">EAA</dd>
+                <dd id="prod-category"><a href="/categoria/aminoacidos/">Aminoácidos</a> · EAA</dd>
               </div>
             </dl>
 
@@ -128,30 +130,39 @@
             </button>
           </section>
 
-          <section class="pdp__details" aria-labelledby="pdp-details-heading" hidden>
+          <section class="pdp__details" aria-labelledby="pdp-details-heading">
             <div class="pdp__details-head">
               <p class="pdp__details-kicker">Conocé el producto</p>
               <h2 id="pdp-details-heading" class="pdp__details-title">Información completa</h2>
             </div>
 
             <div class="pdp__details-grid">
-              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading" hidden>
+              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading">
                 <h3 id="pdp-description-heading">Descripción</h3>
-                <div id="tab-descripcion" class="pdp__prose"></div>
+                <div id="tab-descripcion" class="pdp__prose"><p>AminoX EAAs de BSN reúne los nueve aminoácidos esenciales en una dosis de 10 g por servida: 5 g provienen de los BCAA en relación 2:1:1 y los otros 5 g de los seis esenciales restantes. El envase de 375 g rinde 25 servidas en sabor Watermelon. Al no llevar estimulantes ni azúcar agregada, se puede tomar en cualquier momento del día, incluso en jornadas sin entrenamiento.</p></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading" hidden>
+              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading">
                 <h3 id="pdp-benefits-heading">Beneficios</h3>
-                <div id="tab-beneficios" class="pdp__benefits"></div>
+                <div id="tab-beneficios" class="pdp__benefits"><div class="pdp__benefit">Cubre los nueve aminoácidos esenciales en una sola bebida.</div><div class="pdp__benefit">Incluye 5 g de BCAA en relación 2:1:1 dentro de la dosis total.</div><div class="pdp__benefit">Sin cafeína ni otros estimulantes, se adapta a cualquier horario.</div><div class="pdp__benefit">Sin azúcar agregada, pensado para acompañar el entrenamiento.</div></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading" hidden>
+              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading">
                 <h3 id="pdp-usage-heading">Cómo usar</h3>
-                <ol id="tab-uso" class="pdp__usage"></ol>
+                <ol id="tab-uso" class="pdp__usage"><li>Mezclar 1 medida en agua bien fría y agitar.</li><li>Tomarlo durante el entrenamiento o inmediatamente después.</li><li>Seguir la dosis indicada en la etiqueta del envase.</li></ol>
               </section>
             </div>
           </section>
         </div>
+
+        <!-- Lo rellena js/product-page.js con productos de la misma familia. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
 
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">

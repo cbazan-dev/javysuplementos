@@ -413,3 +413,112 @@
     transform: translate(-50%, 0);
   }
 }
+
+/* ===== Submenú de categorías bajo "SUPLEMENTOS" ==========================
+   Escritorio: dropdown. Móvil (≤900px, el breakpoint del nav): acordeón
+   dentro del menú hamburguesa, para no tapar la pantalla con un panel
+   flotante. */
+.nav__has-sub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav__sub-toggle {
+  display: grid;
+  place-items: center;
+  /* 44px de área táctil aunque el icono sea chico. */
+  width: 44px;
+  height: 44px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--blanco);
+  cursor: pointer;
+}
+
+.nav__sub-toggle .btn-icon svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.18s ease;
+}
+
+.nav__has-sub.is-open .nav__sub-toggle .btn-icon svg {
+  transform: rotate(180deg);
+}
+
+.nav__sub-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -4px;
+  border-radius: 999px;
+}
+
+.nav__sub {
+  list-style: none;
+  margin: 0;
+}
+
+.nav__sub[hidden] {
+  display: none;
+}
+
+.nav__sub a {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.nav__sub-all {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 4px;
+  padding-top: 8px !important;
+  color: var(--neon) !important;
+}
+
+@media (min-width: 901px) {
+  .nav__sub {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 60;
+    display: grid;
+    gap: 2px;
+    min-width: 220px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: rgba(5, 7, 9, 0.97);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@media (max-width: 900px) {
+  .nav__has-sub {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+
+  /* El acordeón empuja el resto del menú en vez de flotar sobre él. */
+  .nav__sub {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 2px;
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid rgba(255, 255, 255, 0.12);
+    margin: 4px 0 4px 8px;
+  }
+
+  .nav__sub a {
+    font-size: 0.95rem;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav__sub-toggle .btn-icon svg {
+    transition: none;
+  }
+}

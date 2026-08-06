@@ -1,7 +1,7 @@
 # Productos a verificar manualmente
 
 **Generado el 2026-08-04 · 49 de 111 productos**
-**Actualizado el 2026-08-05 · quedan 48** — ver el bloque E, ya resuelto.
+**Actualizado el 2026-08-05 · quedan 46** — los bloques C y E ya están resueltos.
 
 > **Llenado de contenido (2026-08-05).** Se completaron en Supabase los 5 productos que
 > seguían con contenido incompleto o con texto de relleno: BioSport Xtreme Gainer,
@@ -9,6 +9,22 @@
 > Hoy **ningún producto activo** tiene menos de 4 beneficios, menos de 3 líneas de uso,
 > ni objetivos vacíos. Esto es independiente de la verificación de marcas de abajo, que
 > sigue pendiente.
+
+### Otros arreglos del 2026-08-05
+
+- **BioSport Xtreme Gainer no tenía `category_id`.** Era el único producto activo sin
+  asignar, y como la jerarquía de categorías ya está activa, eso lo dejaba fuera de todos
+  los filtros por familia — solo aparecía en "Todos". Se movió a **Ganadores de Peso ›
+  Mass gainer**, junto a los otros 8 gainers.
+
+### Pendientes sueltos (sin resolver)
+
+- **Precio distinto entre las dos fuentes.** `Nutrex Creatine Monohydrate 60 servidas`
+  vale **$12.50** en `js/product-data.js` y **$15.00** en Supabase. Hay que decidir cuál es
+  el bueno; conviene revisar si hay más casos así.
+- **Categorías en singular.** Dos productos usan `Creatina` en vez de `Creatinas`
+  (`Nutrex Creatine Monohydrate 60 servidas` y `Olympus Creatine 100 servidas`). Hoy **no
+  rompe nada** porque el filtro se guía por `category_id`, pero conviene unificarlo.
 
 Estos son los productos donde **la marca o el nombre no están claros** en la base de datos.
 Sin una identidad correcta no se puede buscar información veraz del producto, y la regla
@@ -80,13 +96,14 @@ fabricante es deducible, pero **conviene confirmarlo** antes de escribir conteni
 Este es el error más serio: en la tienda estos productos aparecen bajo una marca que no
 existe como fabricante de suplementos.
 
-| Producto | "Marca" actual | Qué es en realidad | Presentación | Precio |
+| Producto | "Marca" anterior | Marca corregida | Presentación | Precio |
 |---|---|---|---|---|
-| C4 Whey Protein | `Hershey´s` | **Marca: Cellucor** · Hershey's es el **sabor** | 2.2 lb - 28 servidas | $38.00 |
-| C4 Whey Protein | `Reese's` | **Marca: Cellucor** · Reese's es el **sabor** | 5.8 lb - 66 servidas | $71.00 |
+| C4 Whey Protein | ~~`Hershey´s`~~ | **Cellucor** ✅ | 2.2 lb - 28 servidas | $38.00 |
+| C4 Whey Protein | ~~`Reese's`~~ | **Cellucor** ✅ | 5.8 lb - 66 servidas | $71.00 |
 
-**Acción sugerida:** poner marca `Cellucor` en ambos y mover "Hershey's" / "Reese's" al
-campo de sabores.
+✅ **Resuelto.** Los sabores ya estaban bien cargados en la tabla `product_flavors`
+("Hershey's" y "Reese's Chocolate Peanut Butter"), así que solo hubo que corregir la marca.
+De paso se normalizó el apóstrofo tipográfico de `Hershey´s` → `Hershey's`.
 
 ---
 
@@ -120,14 +137,15 @@ modo de uso.
 |---|---|---|---|---|
 | Creatina Nutrex - 60 Servidas | Nutrex ✅ | 60 servidas ✅ | $15.99 | Contenido completo |
 
-> ⚠️ **Pero es un duplicado.** Ya existe `Nutrex Creatine Monohydrate 60 servidas`
-> (Nutrex, 60 servidas, **$15.00**), que además está marcada para aparecer en la home y ya
-> tenía su contenido escrito. Ahora la misma creatina figura dos veces en el catálogo con
-> dos precios distintos.
+> ✅ **Duplicado confirmado y desactivado.** Comparando las dos fotos se ve el mismo bote:
+> Nutrex Creatine Monohydrate, 60 SRV, 300 g, *Unflavored*. Ya existía como
+> `Nutrex Creatine Monohydrate 60 servidas` ($15.00, en la home). El registro de $15.99
+> quedó con `is_active = false` y `show_on_home = false` — **no se borró**, así que se puede
+> revertir en cualquier momento si resulta ser una compra distinta.
 >
-> **Falta decidir:** desactivar el duplicado (`is_active = false`, recomendado — se puede
-> revertir), borrarlo, o dejar los dos. Mientras tanto quedó con `category = 'Producto'`
-> a propósito, así no aparece en el filtro de Creatinas junto al original.
+> Ojo que hay **tres** creatinas Nutrex de 60 servidas en la base, y las otras dos son
+> productos legítimamente distintos: la sin sabor ($15.00) y la saborizada ($18.00, con
+> Fresa Sandía / Fruit Punch / Mango).
 
 ---
 
@@ -154,11 +172,11 @@ producto es. Muchas marcas tienen varias líneas con nombres parecidos.
 |---|---|---|
 | A · Marca es un ingrediente | 18 | 🔴 Alta — hace falta ver el envase |
 | B · Marca es el nombre del producto | 11 | 🟡 Media — 5 son deducibles |
-| C · Marca es un sabor | 2 | 🟢 Baja — ya sabemos la respuesta (Cellucor) |
+| C · Marca es un sabor | ~~2~~ → 0 | ✅ Resuelto — marca `Cellucor` aplicada |
 | D · Typos y duplicados | 10 | 🟢 Baja — corrección directa |
 | E · Registro incompleto | ~~1~~ → 0 | ✅ Resuelto — falta decidir el duplicado |
 | F · Nombre genérico o duplicado | 7 | 🟡 Media — comparar con el envase |
-| **Total a revisar** | **48** | |
+| **Total a revisar** | **46** | |
 | **Listos para llenado automático** | **62** | |
 
 ### Dato aparte: 22 productos sin presentación

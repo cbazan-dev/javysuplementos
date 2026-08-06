@@ -208,6 +208,15 @@ decida termogénico/stim-free y con/sin estimulante producto por producto.
 
 ## 6. Plan por fases
 
+> **Corrección al plan original.** La primera versión de este documento proponía borrar las
+> subcategorías vacías en la fase de limpieza de datos. Es un error de orden: las vacías de
+> Quemadores (4), Pre-entrenos (3), Aminoácidos (2) y Salud y bienestar (5) están vacías
+> *precisamente porque* sus productos cuelgan de la familia — y son el **destino** al que hay que
+> moverlos. Borrarlas antes del reparto dejaría el reparto sin destino. Solo se borran de entrada
+> las que no tienen destino pendiente (`Beef`, `Vegana`, `Lean gainer`, cuyas familias no tienen
+> productos sueltos) y el duplicado `ISO`. El resto se limpia **después** del reparto, con el bloque
+> opcional al pie de `supabase/migrations/fase8-taxonomia.sql`.
+
 | Fase | Qué | Dónde | Impacto | Riesgo |
 |---|---|---|---|---|
 | **0 — Limpieza de datos** | Borrar duplicado ISO, subcategorías vacías y planas heredadas; reordenar familias; resincronizar el texto `category`; normalizar objetivos | Migración SQL en Supabase + `export-product-data.mjs` | Alto | Bajo (nada de esto tiene productos asignados salvo los objetivos) |

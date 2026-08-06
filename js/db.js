@@ -640,10 +640,55 @@ function categorySlugify(value = "") {
     .replace(/^-+|-+$/g, "");
 }
 
+// Mueve varios productos a una categoría de una sola vez. Es lo que hace
+// viable repartir los productos que cuelgan de una familia sin abrir un
+// formulario por producto.
+async function updateProductsCategory(ids = [], categoryId) {
+  ensureSupabaseForWrite();
+  const list = ids.map(String).filter(Boolean);
+  if (!list.length) return 0;
+
+  // `category` (texto) se deriva de la categoría destino para que no se
+  // desincronice del category_id, que es la fuente de verdad.
+  const { data: cat, error: catError } = await supabaseClient
+    .from("categories").select("id, name").eq("id", categoryId).maybeSingle();
+  if (catError) throw catError;
+  if (!cat) throw new Error("La categoría destino no existe.");
+
+  const { error } = await supabaseClient
+    .from("products")
+    .update({ category_id: cat.id, category: cat.name, ...(await auditStamp()) })
+    .in("id", list);
+  if (error) throw error;
+
+  productsCache = null;
+  await logActivity({
+    action: "update",
+    entity_type: "product",
+    entity_name: `${list.length} productos`,
+    summary: `movió ${list.length} producto(s) a la categoría «${cat.name}»`,
+  });
+  return list.length;
+}
+
 async function createCategory({ name, parentId = null, sortOrder = 100 }) {
   ensureSupabaseForWrite();
   const trimmed = name?.trim();
   if (!trimmed) throw new Error("El nombre de la categoría es obligatorio.");
+
+  // El slug lleva sufijo de timestamp, así que nunca choca y los duplicados
+  // pasaban sin aviso: así nacieron "ISO" e "ISO (aislada)" conviviendo.
+  let siblingsQuery = supabaseClient.from("categories").select("id, name");
+  siblingsQuery = parentId
+    ? siblingsQuery.eq("parent_id", parentId)
+    : siblingsQuery.is("parent_id", null);
+  const { data: siblings } = await siblingsQuery;
+  const clash = (siblings || []).find(
+    (c) => (c.name || "").trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (clash) {
+    throw new Error(`Ya existe «${clash.name}» en este nivel. Usá esa o elegí otro nombre.`);
+  }
   // Slug único: fam- para familias, tipo- para tipos, + base del nombre.
   const base = categorySlugify(trimmed) || "categoria";
   const slug = `${parentId ? "tipo" : "fam"}-${base}-${Date.now().toString(36)}`;
@@ -1370,6 +1415,7 @@ window.catalogDb = {
   getProductById,
   getCategories,
   getAllCategories,
+  updateProductsCategory,
   createCategory,
   updateCategory,
   deleteCategory,

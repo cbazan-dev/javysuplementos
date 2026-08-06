@@ -81,3 +81,15 @@ export function productPath(slug) {
 export function categoryPath(slug) {
   return `/categoria/${slug}/`;
 }
+
+/* Slug de una categoría para los parámetros de filtro del catálogo
+   (?fam=proteinas&tipo=whey). La columna `slug` de Supabase arrastra prefijos
+   internos ("fam-proteinas", "tipo-whey") que no pintan en una URL pública.
+
+   `js/supplements.js` replica esta misma normalización: si cambia acá, cambia
+   allá. Familia y tipo viajan en parámetros distintos, así que dos categorías
+   de niveles distintos pueden normalizar al mismo texto sin ambigüedad. */
+export function categoryFilterSlug(category) {
+  const stripped = String(category?.slug || "").replace(/^(fam|tipo)-/, "");
+  return stripped || slugTokens(category?.name).join("-");
+}

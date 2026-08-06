@@ -8,7 +8,14 @@
         </button>
         <ul class="nav__links" id="navMenu">
           <li><a href="/">INICIO</a></li>
-          <li><a href="/supplements-page.html">SUPLEMENTOS</a></li>
+          <li class="nav__has-sub" data-nav-categories>
+            <a href="/supplements-page.html">SUPLEMENTOS</a>
+            <button class="nav__sub-toggle" type="button" aria-expanded="false" aria-controls="navCategories" aria-label="Ver categorías">
+              <span class="btn-icon" data-javy-icon="arrow-down" aria-hidden="true"></span>
+            </button>
+            <!-- Lo rellena js/include-nav.js con las familias reales. -->
+            <ul class="nav__sub" id="navCategories" hidden></ul>
+          </li>
           <li><a href="/testimonios.html">TESTIMONIOS</a></li>
           <li><a href="/contacto.html">SOBRE NOSOTROS</a></li>
           <li class="nav__admin-mobile">

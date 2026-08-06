@@ -35,13 +35,13 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#050709" />
     <link rel="stylesheet" href="/css/styles.css?v=fase2-ui" />
-    <link rel="stylesheet" href="/css/components/nav.css?v=fase2-ui" />
+    <link rel="stylesheet" href="/css/components/nav.css?v=cat-nav" />
     <link rel="stylesheet" href="/css/components/auth.css?v=session-state" />
     <link rel="stylesheet" href="/css/tokens.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cart.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cards.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/dropdown.css?v=4" />
-    <link rel="stylesheet" href="/css/pages/product.css?v=product-detail-manual" />
+    <link rel="stylesheet" href="/css/pages/product.css?v=cat-nav" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -55,11 +55,11 @@
     <script src="/js/product-urls.js?v=seo-urls" defer></script>
     <script src="/js/db.js?v=no-img-fallback" defer></script>
     <script src="/js/auth.js?v=session-state" defer></script>
-    <script src="/js/icons.js?v=icons" defer></script>
+    <script src="/js/icons.js?v=cat-icons" defer></script>
     <script src="/js/dropdown.js?v=4" defer></script>
     <script src="/js/cart.js?v=fase2-ui" defer></script>
-    <script src="/js/product-page.js?v=product-detail-manual" defer></script>
-    <script src="/js/include-nav.js?v=admin-auth" defer></script>
+    <script src="/js/product-page.js?v=cat-nav" defer></script>
+    <script src="/js/include-nav.js?v=cat-nav" defer></script>
   </head>
   <body>
     <div id="site-header"></div>
@@ -69,7 +69,7 @@
         <nav class="pdp__breadcrumb" aria-label="Ruta de navegación">
           <a href="/supplements-page.html">Catálogo</a>
           <span class="pdp__breadcrumb-sep">/</span>
-          <span id="pdp-breadcrumb-cat">Salud y bienestar</span>
+          <a href="/categoria/salud-y-bienestar/" data-breadcrumb-family>Salud y bienestar</a>
         </nav>
 
         <div class="pdp__layout">
@@ -128,30 +128,39 @@
             </button>
           </section>
 
-          <section class="pdp__details" aria-labelledby="pdp-details-heading" hidden>
+          <section class="pdp__details" aria-labelledby="pdp-details-heading">
             <div class="pdp__details-head">
               <p class="pdp__details-kicker">Conocé el producto</p>
               <h2 id="pdp-details-heading" class="pdp__details-title">Información completa</h2>
             </div>
 
             <div class="pdp__details-grid">
-              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading" hidden>
+              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading">
                 <h3 id="pdp-description-heading">Descripción</h3>
-                <div id="tab-descripcion" class="pdp__prose"></div>
+                <div id="tab-descripcion" class="pdp__prose"><p>El ZMA combina zinc, magnesio y vitamina B6, una fórmula clásica que se toma antes de dormir por el papel del magnesio en la relajación muscular y la calidad del descanso. Esta presentación de Nutricost trae 90 cápsulas, que rinden 30 servidas de tres cápsulas cada una. Se suele tomar con el estómago vacío y separado de los suplementos de calcio.</p></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading" hidden>
+              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading">
                 <h3 id="pdp-benefits-heading">Beneficios</h3>
-                <div id="tab-beneficios" class="pdp__benefits"></div>
+                <div id="tab-beneficios" class="pdp__benefits"><div class="pdp__benefit">El magnesio ayuda a relajar el músculo y a conciliar mejor el sueño.</div><div class="pdp__benefit">El zinc participa en la función inmune y en la producción hormonal.</div><div class="pdp__benefit">La vitamina B6 acompaña la absorción de ambos minerales.</div><div class="pdp__benefit">Apoya la recuperación de quien entrena fuerte y descansa poco.</div></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading" hidden>
+              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading">
                 <h3 id="pdp-usage-heading">Cómo usar</h3>
-                <ol id="tab-uso" class="pdp__usage"></ol>
+                <ol id="tab-uso" class="pdp__usage"><li>Consultar la dosis indicada en la etiqueta del producto.</li><li>Usar como complemento de una alimentación y entrenamiento adecuados.</li><li>Si tienes condiciones médicas o sensibilidad a estimulantes, consulta antes de usar.</li></ol>
               </section>
             </div>
           </section>
         </div>
+
+        <!-- Lo rellena js/product-page.js con productos de la misma familia. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
 
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">

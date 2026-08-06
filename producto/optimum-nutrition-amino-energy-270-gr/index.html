@@ -27,7 +27,7 @@
     <meta name="twitter:description" content="Aminoácidos con 100 mg de cafeína natural por servida, para cualquier hora.">
     <meta name="twitter:image" content="https://javysuplementos.com/img/products/product-placeholder.svg">
 
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"Amino Energy","image":"https://javysuplementos.com/img/products/product-placeholder.svg","description":"Aminoácidos con 100 mg de cafeína natural por servida, para cualquier hora.","url":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/","brand":{"@type":"Brand","name":"Optimum Nutrition"},"offers":{"@type":"Offer","price":"34.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"Amino Energy","item":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/"}]}]}</script>
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Product","name":"Amino Energy","image":"https://javysuplementos.com/img/products/product-placeholder.svg","description":"Aminoácidos con 100 mg de cafeína natural por servida, para cualquier hora.","url":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/","brand":{"@type":"Brand","name":"Optimum Nutrition"},"offers":{"@type":"Offer","price":"34.00","priceCurrency":"USD","availability":"https://schema.org/InStock","url":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/","seller":{"@type":"Organization","name":"Javy Suplementos"}}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Catálogo","item":"https://javysuplementos.com/supplements-page.html"},{"@type":"ListItem","position":2,"name":"Aminoácidos","item":"https://javysuplementos.com/categoria/aminoacidos/"},{"@type":"ListItem","position":3,"name":"Amino+energía"},{"@type":"ListItem","position":4,"name":"Amino Energy","item":"https://javysuplementos.com/producto/optimum-nutrition-amino-energy-270-gr/"}]}]}</script>
 
     <link rel="icon" type="image/png" sizes="32x32" href="/img/icons/javy-favicon-32x32.png?v=2" />
     <link rel="icon" type="image/png" sizes="any" href="/img/icons/javy-favicon-cejas-color-correcto-1024.png?v=2" />
@@ -35,13 +35,13 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#050709" />
     <link rel="stylesheet" href="/css/styles.css?v=fase2-ui" />
-    <link rel="stylesheet" href="/css/components/nav.css?v=fase2-ui" />
+    <link rel="stylesheet" href="/css/components/nav.css?v=cat-nav" />
     <link rel="stylesheet" href="/css/components/auth.css?v=session-state" />
     <link rel="stylesheet" href="/css/tokens.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cart.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/components/cards.css?v=fase2-ui" />
     <link rel="stylesheet" href="/css/dropdown.css?v=4" />
-    <link rel="stylesheet" href="/css/pages/product.css?v=product-detail-manual" />
+    <link rel="stylesheet" href="/css/pages/product.css?v=cat-nav" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -55,11 +55,11 @@
     <script src="/js/product-urls.js?v=seo-urls" defer></script>
     <script src="/js/db.js?v=no-img-fallback" defer></script>
     <script src="/js/auth.js?v=session-state" defer></script>
-    <script src="/js/icons.js?v=icons" defer></script>
+    <script src="/js/icons.js?v=cat-icons" defer></script>
     <script src="/js/dropdown.js?v=4" defer></script>
     <script src="/js/cart.js?v=fase2-ui" defer></script>
-    <script src="/js/product-page.js?v=product-detail-manual" defer></script>
-    <script src="/js/include-nav.js?v=admin-auth" defer></script>
+    <script src="/js/product-page.js?v=cat-nav" defer></script>
+    <script src="/js/include-nav.js?v=cat-nav" defer></script>
   </head>
   <body>
     <div id="site-header"></div>
@@ -68,6 +68,8 @@
 
         <nav class="pdp__breadcrumb" aria-label="Ruta de navegación">
           <a href="/supplements-page.html">Catálogo</a>
+          <span class="pdp__breadcrumb-sep">/</span>
+          <a href="/categoria/aminoacidos/" data-breadcrumb-family>Aminoácidos</a>
           <span class="pdp__breadcrumb-sep">/</span>
           <span id="pdp-breadcrumb-cat">Amino+energía</span>
         </nav>
@@ -100,7 +102,7 @@
               </div>
               <div>
                 <dt>Categoría</dt>
-                <dd id="prod-category">Amino+energía</dd>
+                <dd id="prod-category"><a href="/categoria/aminoacidos/">Aminoácidos</a> · Amino+energía</dd>
               </div>
             </dl>
 
@@ -128,30 +130,39 @@
             </button>
           </section>
 
-          <section class="pdp__details" aria-labelledby="pdp-details-heading" hidden>
+          <section class="pdp__details" aria-labelledby="pdp-details-heading">
             <div class="pdp__details-head">
               <p class="pdp__details-kicker">Conocé el producto</p>
               <h2 id="pdp-details-heading" class="pdp__details-title">Información completa</h2>
             </div>
 
             <div class="pdp__details-grid">
-              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading" hidden>
+              <section class="pdp__content-section pdp__content-section--description" data-content-section="description" aria-labelledby="pdp-description-heading">
                 <h3 id="pdp-description-heading">Descripción</h3>
-                <div id="tab-descripcion" class="pdp__prose"></div>
+                <div id="tab-descripcion" class="pdp__prose"><p>Lo que distingue a Amino Energy es que junta las dos cosas en un mismo polvo: 5 g de una mezcla de aminoácidos libres micronizados, con BCAA, EAA, taurina, glutamina, arginina, citrulina y beta-alanina, más 100 mg de cafeína de té verde y café verde por servida de dos medidas. El envase de 270 g rinde 30 servidas. La dosis de cafeína se ajusta según cuántas medidas se usen: una da 50 mg y tres llegan a 150 mg.</p></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading" hidden>
+              <section class="pdp__content-section" data-content-section="benefits" aria-labelledby="pdp-benefits-heading">
                 <h3 id="pdp-benefits-heading">Beneficios</h3>
-                <div id="tab-beneficios" class="pdp__benefits"></div>
+                <div id="tab-beneficios" class="pdp__benefits"><div class="pdp__benefit">Combina 5 g de aminoácidos con 100 mg de cafeína en una sola bebida.</div><div class="pdp__benefit">La cafeína proviene de té verde y café verde, sin azúcar agregada.</div><div class="pdp__benefit">La dosis se regula sumando o quitando medidas del envase.</div><div class="pdp__benefit">Amplia variedad de sabores dentro de la misma línea.</div></div>
               </section>
 
-              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading" hidden>
+              <section class="pdp__content-section" data-content-section="usage" aria-labelledby="pdp-usage-heading">
                 <h3 id="pdp-usage-heading">Cómo usar</h3>
-                <ol id="tab-uso" class="pdp__usage"></ol>
+                <ol id="tab-uso" class="pdp__usage"><li>Mezclar 2 medidas en unos 330 ml de agua fría.</li><li>Se toma antes, durante o después del entrenamiento.</li><li>Evitarlo cerca de la hora de dormir o si hay sensibilidad a estimulantes.</li></ol>
               </section>
             </div>
           </section>
         </div>
+
+        <!-- Lo rellena js/product-page.js con productos de la misma familia. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
 
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">

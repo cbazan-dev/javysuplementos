@@ -1,10 +1,11 @@
 /* ============================================================================
    Sección Categorías: familias y tipos (jerarquía), orden, ocultar y borrar.
    ============================================================================ */
-import { state, families, typesOf, catById } from "../state.js?v=adm-bf8832f0";
-import { $, esc, ico } from "../helpers.js?v=adm-bf8832f0";
-import { setView } from "../view.js?v=adm-bf8832f0";
-import { emptyFeature, promptModal, confirmModal, toast } from "../ui.js?v=adm-bf8832f0";
+import { state, families, typesOf, catById } from "../state.js?v=adm-b0d853ee";
+import { $, esc, ico } from "../helpers.js?v=adm-b0d853ee";
+import { setView } from "../view.js?v=adm-b0d853ee";
+import { go } from "../shell.js?v=adm-b0d853ee";
+import { emptyFeature, promptModal, confirmModal, toast } from "../ui.js?v=adm-b0d853ee";
 
 export function renderCategories() {
   if (!state.categoriesSupported) {
@@ -17,9 +18,16 @@ export function renderCategories() {
     const ids = [cat.id, ...childIds];
     return state.products.filter((p) => ids.includes(p.category_id)).length;
   };
+  // Productos asignados a la familia SIN bajar a una subcategoría. Es el número
+  // que explica por qué el segundo nivel no aparece en el catálogo público.
+  const looseCountFor = (cat) =>
+    state.products.filter((p) => String(p.category_id) === String(cat.id)).length;
+  const typeCountFor = (type) =>
+    state.products.filter((p) => String(p.category_id) === String(type.id)).length;
 
   const cards = fams.map((c, i) => {
     const subs = typesOf(c.id);
+    const loose = looseCountFor(c);
     return `
     <div class="ad-cat${c.is_active === false ? " is-hidden" : ""}" data-cat="${esc(c.id)}">
       <div class="ad-cat__head">
@@ -40,10 +48,22 @@ export function renderCategories() {
       <div class="ad-cat__types">
         <span class="ad-cat__sublabel">Subcategorías</span>
         <div class="ad-cat__chips">
-          ${subs.map((t) => `<span class="ad-type-chip">${esc(t.name)}<button type="button" aria-label="Eliminar subcategoría ${esc(t.name)}" data-type-del="${esc(t.id)}">${ico("x")}</button></span>`).join("")}
+          ${subs.map((t) => {
+            const n = typeCountFor(t);
+            return `<span class="ad-type-chip${n ? "" : " is-empty"}" title="${esc(t.name)}: ${n} producto${n === 1 ? "" : "s"}">
+              <button class="ad-type-chip__name" type="button" data-type-rename="${esc(t.id)}" title="Renombrar ${esc(t.name)}">${esc(t.name)}</button>
+              <span class="ad-type-chip__count" aria-hidden="true">${n}</span>
+              <button type="button" aria-label="Eliminar subcategoría ${esc(t.name)}" data-type-del="${esc(t.id)}">${ico("x")}</button>
+            </span>`;
+          }).join("")}
           ${subs.length ? "" : `<span class="ad-cat__empty">Aún sin subcategorías.</span>`}
           <button class="ad-type-chip ad-type-chip--add" type="button" data-type-add="${esc(c.id)}">${ico("plus")}Añadir</button>
         </div>
+        ${loose && subs.length
+          ? `<button class="ad-cat__loose" type="button" data-cat-loose="${esc(c.id)}">
+               ${ico("filter")}${loose} producto${loose === 1 ? "" : "s"} sin subcategoría — repartir
+             </button>`
+          : ""}
       </div>
     </div>`;
   }).join("");
@@ -63,6 +83,8 @@ export function renderCategories() {
   view.querySelectorAll("[data-cat-del]").forEach((b) => b.addEventListener("click", () => deleteFamily(b.getAttribute("data-cat-del"))));
   view.querySelectorAll("[data-type-add]").forEach((b) => b.addEventListener("click", () => addType(b.getAttribute("data-type-add"))));
   view.querySelectorAll("[data-type-del]").forEach((b) => b.addEventListener("click", () => deleteType(b.getAttribute("data-type-del"))));
+  view.querySelectorAll("[data-type-rename]").forEach((b) => b.addEventListener("click", () => renameCategory(b.getAttribute("data-type-rename"))));
+  view.querySelectorAll("[data-cat-loose]").forEach((b) => b.addEventListener("click", () => showLooseProducts(b.getAttribute("data-cat-loose"))));
   ensureMenuListeners();
 }
 
@@ -96,6 +118,16 @@ function ensureMenuListeners() {
     if (!e.target.closest(".ad-menu__panel")) closeAllMenus();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAllMenus(); });
+}
+
+/* Salta a Productos ya filtrado por los que cuelgan de esta familia sin
+   subcategoría, que es donde están las herramientas para repartirlos. */
+function showLooseProducts(famId) {
+  state.productFilter = "nosub";
+  state.productCategory = famId;
+  state.productSubcategory = "all";
+  state.search = "";
+  go("products");
 }
 
 async function addFamily() {

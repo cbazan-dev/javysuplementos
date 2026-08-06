@@ -33,12 +33,12 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#050709" />
     <link rel="stylesheet" href="css/styles.css?v=fase2-ui" />
-        <link rel="stylesheet" href="css/components/nav.css?v=fase2-ui" />
+        <link rel="stylesheet" href="css/components/nav.css?v=cat-nav" />
     <link rel="stylesheet" href="css/components/auth.css?v=session-state" />
 
     <link rel="stylesheet" href="css/tokens.css?v=fase2-ui" />
     <link rel="stylesheet" href="css/components/cart.css?v=fase2-ui" />
-    <link rel="stylesheet" href="css/pages/product.css?v=product-detail-manual" />
+    <link rel="stylesheet" href="css/pages/product.css?v=cat-nav" />
     <link rel="stylesheet" href="css/dropdown.css?v=4" />
 
 
@@ -58,11 +58,11 @@
     <script src="js/product-urls.js?v=seo-urls" defer></script>
     <script src="js/db.js?v=no-img-fallback" defer></script>
     <script src="js/auth.js?v=session-state" defer></script>
-    <script src="js/icons.js?v=icons" defer></script>
+    <script src="js/icons.js?v=cat-icons" defer></script>
     <script src="js/dropdown.js?v=4" defer></script>
     <script src="js/cart.js?v=fase2-ui" defer></script>
-    <script src="js/product-page.js?v=product-detail-manual" defer></script>
-    <script src="js/include-nav.js?v=admin-auth" defer></script>
+    <script src="js/product-page.js?v=cat-nav" defer></script>
+    <script src="js/include-nav.js?v=cat-nav" defer></script>
   </head>
   <body>
     <div id="site-header"></div>
@@ -155,6 +155,16 @@
             </div>
           </section>
         </div>
+
+        <!-- Productos de la misma familia: sin esto la ficha es un callejón sin
+             salida. Lo rellena js/product-page.js y queda oculto si no hay. -->
+        <section class="pdp__related" id="pdp-related" aria-labelledby="pdp-related-title" hidden>
+          <div class="pdp__related-head">
+            <h2 class="pdp__related-title" id="pdp-related-title"></h2>
+            <a class="pdp__related-link" id="pdp-related-link" href="/supplements-page.html">Ver todos</a>
+          </div>
+          <div class="pdp__related-grid" id="pdp-related-grid"></div>
+        </section>
 
         <aside class="pdp__bar" aria-label="Acciones de compra" aria-hidden="true">
           <div class="pdp__bar-info">
