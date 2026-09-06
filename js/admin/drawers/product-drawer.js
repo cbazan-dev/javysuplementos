@@ -3,13 +3,13 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-10ca6ea7";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-10ca6ea7";
-import { $, esc, ico } from "../helpers.js?v=adm-10ca6ea7";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-10ca6ea7";
-import { requestRerender } from "../shell.js?v=adm-10ca6ea7";
-import { reloadProducts } from "../data.js?v=adm-10ca6ea7";
-import { openImageCropper } from "../image-cropper.js?v=adm-10ca6ea7";
+import { state, catById, families, typesOf } from "../state.js?v=adm-90d40885";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-90d40885";
+import { $, esc, ico } from "../helpers.js?v=adm-90d40885";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-90d40885";
+import { requestRerender } from "../shell.js?v=adm-90d40885";
+import { reloadProducts } from "../data.js?v=adm-90d40885";
+import { openImageCropper } from "../image-cropper.js?v=adm-90d40885";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");

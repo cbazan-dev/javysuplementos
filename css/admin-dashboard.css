@@ -822,7 +822,11 @@ body.ad-body { min-height: 100vh; }
   animation: adFade .18s ease;
 }
 .ad-cropper {
-  width: min(460px, 100%); max-height: 100%; overflow-y: auto;
+  /* Ancho definido, no min(...,100%): el overlay es un grid con
+     place-items:center, o sea que este item es shrink-to-fit, y ahí el
+     porcentaje colapsa a 0 y se lleva puesto al marco, que hereda ese 0 por
+     su propio 100%. Resultado: el editor abría con el cuadro en cero. */
+  width: 460px; max-width: 100%; max-height: 100%; overflow-y: auto;
   display: grid; gap: 12px; padding: 16px;
   border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius);
   background: linear-gradient(180deg, #0d141d, #090d13);
@@ -842,9 +846,13 @@ body.ad-body { min-height: 100vh; }
    ocupara todo el ancho del diálogo, en una pantalla baja el aspect-ratio
    desbordaría la grilla y se comería la fila del zoom. */
 .ad-cropper__frame {
-  position: relative; aspect-ratio: 1 / 1; overflow: hidden;
-  width: min(100%, 48vh);
-  width: min(100%, 48dvh);
+  position: relative; overflow: hidden; box-sizing: border-box;
+  /* Tamaño provisional: al abrir, layoutFrame() en js/admin/image-cropper.js le
+     fija ancho y alto en píxeles. Dejar que lo resolviera el CSS con
+     aspect-ratio + max-height (o min(100%, 48dvh)) terminaba en un cuadro de
+     alto cero, y el editor abría vacío sin decir nada. */
+  width: 100%;
+  aspect-ratio: 1 / 1;
   margin-inline: auto;
   border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius-sm);
   background-color: var(--pb-surface-2);
@@ -899,7 +907,7 @@ body.ad-body { min-height: 100vh; }
 .ad-cropper__actions .ad-btn { flex: 1 1 auto; }
 
 @media (min-width: 561px) {
-  .ad-cropper { width: min(520px, 100%); padding: 22px; gap: 14px; }
+  .ad-cropper { width: 520px; max-width: 100%; padding: 22px; gap: 14px; }
   .ad-cropper__actions .ad-btn { flex: 0 0 auto; }
 }
 @media (prefers-reduced-motion: reduce) {

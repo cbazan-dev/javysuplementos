@@ -10,8 +10,8 @@
    compositor mueve la imagen a 60fps sin repintar, y como exportamos ese mismo
    <img>, la orientación EXIF de las fotos de celular se respeta sola.
    ============================================================================ */
-import { esc, ico } from "./helpers.js?v=adm-10ca6ea7";
-import { toast } from "./ui.js?v=adm-10ca6ea7";
+import { esc, ico } from "./helpers.js?v=adm-90d40885";
+import { toast } from "./ui.js?v=adm-90d40885";
 
 const RANGE = 1000;          // resolución del slider de zoom
 const MAX_ZOOM_FACTOR = 4;   // cuánto se puede acercar más allá de "llenar"
@@ -62,6 +62,21 @@ function baseNameOf(value) {
  * @returns {Promise<File|null>}      null si se canceló o no se pudo abrir
  */
 export function openImageCropper(o = {}) {
+  // Nunca dejar que un fallo al construir el editor se pierda como promesa
+  // rechazada: quien llama solo vería que "no pasa nada".
+  try {
+    return buildCropper(o);
+  } catch (err) {
+    toast({
+      tone: "err",
+      msg: "No se pudo abrir el editor de encuadre",
+      sub: (err && err.message) || "Error inesperado.",
+    });
+    return Promise.resolve(null);
+  }
+}
+
+function buildCropper(o) {
   const {
     file = null, src = "", aspect = 1, output = 800,
     quality = 0.85, fileName = "", title = "Ajustar encuadre",
@@ -116,7 +131,7 @@ export function openImageCropper(o = {}) {
     const rangeEl = q("[data-crop-zoom]");
     const errEl = q("[data-crop-error]");
     const okBtn = q("[data-crop-ok]");
-    const loadingEl = q("[data-crop-loading]");
+    let loadingEl = q("[data-crop-loading]");
 
     frameEl.style.aspectRatio = String(aspect);
 
@@ -167,16 +182,24 @@ export function openImageCropper(o = {}) {
     const doFit = () => { scale = scaleContain; doCenter(); syncRange(); };
     const doFill = () => { scale = scaleCover; doCenter(); syncRange(); };
 
-    // Espera (hasta ~1,5 s de frames) a que el marco tenga tamaño real.
-    function waitForFrameSize() {
-      return new Promise((res) => {
-        let tries = 90;
-        const tick = () => {
-          if (closed || (frameEl.clientWidth && frameEl.clientHeight) || tries-- <= 0) return res();
-          requestAnimationFrame(tick);
-        };
-        tick();
-      });
+    // El tamaño del marco se fija acá, en píxeles, y no se delega al CSS.
+    // Resolverlo con aspect-ratio + max-height (o con min(100%, 48dvh)) daba un
+    // cuadro de alto cero según el navegador y el contenedor: el editor abría
+    // vacío, sin error visible, y desde afuera parecía que subir la foto no
+    // hacía nada. Medido acá es determinista y no depende de que la hoja de
+    // estilos del panel haya llegado a aplicarse.
+    let ladoActual = 0;
+    function layoutFrame() {
+      frameEl.style.width = "100%";
+      frameEl.style.height = "auto";
+      const hueco = frameEl.clientWidth || 320;                  // ancho disponible real
+      const tope = Math.max(160, Math.min(window.innerHeight - 300, 420));
+      const lado = Math.round(Math.max(160, Math.min(hueco, tope)));
+      frameEl.style.width = lado + "px";
+      frameEl.style.height = Math.round(lado / aspect) + "px";
+      const cambio = lado !== ladoActual;
+      ladoActual = lado;
+      return cambio;
     }
 
     function measure(keepFraming) {
@@ -374,23 +397,25 @@ export function openImageCropper(o = {}) {
         imgEl.style.height = natH + "px";
         imgEl.style.transformOrigin = "0 0";
 
-        // El marco puede medir 0 en el primer frame (hoja de estilos todavía sin
-        // aplicar, o el drawer en plena animación de apertura). Se espera a que
-        // el layout le dé tamaño en vez de fallar de entrada.
-        await waitForFrameSize();
-        if (closed) return;
+        layoutFrame();
         measure(false);
         if (!frameW || !frameH) throw new Error("No se pudo medir el área de recorte.");
         doFill();               // llenar + centrado: para una foto cuadrada es la foto entera
         ready = true;
         overlay.classList.remove("is-loading");
         loadingEl.remove();
+        loadingEl = null;
         okBtn.disabled = false;
         frameEl.focus({ preventScroll: true });
 
+        // Se observa el diálogo, no el marco: el marco lo redimensiona
+        // layoutFrame(), y observarlo se realimentaría en bucle.
         if (typeof ResizeObserver === "function") {
-          ro = new ResizeObserver(() => { if (ready) measure(true); });
-          ro.observe(frameEl);
+          ro = new ResizeObserver(() => {
+            if (!ready) return;
+            if (layoutFrame()) measure(true);   // solo si el lado cambió de verdad
+          });
+          ro.observe(q(".ad-cropper"));
         }
       } catch (err) {
         const message = err && err.message ? err.message : "No se pudo abrir el editor de encuadre.";
