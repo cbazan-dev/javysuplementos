@@ -193,11 +193,16 @@ Las de abajo son las fichas dadas de baja que siguen sin página. Todas estuvier
 `sitemap.xml`, o sea que Google las tiene indexadas. El destino de cada una es la categoría que
 la propia ficha declaraba en su breadcrumb.
 
+> **⚠️ Estado real al 2026-09-07: ninguna de estas reglas está creada en Cloudflare.** Se verificó
+> contra producción — las URLs de esta tabla devuelven **404**, no 301. O sea que esta sección es
+> una lista de pendientes, no un inventario de lo configurado. Al aplicarlas, verificar una por una.
+>
 > **Una regla de esta tabla se BORRA cuando el producto vuelve.** Un producto reactivado en el
 > panel recupera su página `/producto/<slug>/` en la siguiente regeneración, pero si la regla 301
-> sigue viva en Cloudflare **secuestra esa URL** y la página nueva nunca se puede visitar. Pasó de
-> verdad: en la regeneración del 2026-09-06 volvieron **39** de las fichas que estaban en esta
-> tabla, y hubo que quitarlas. Antes de tocar Cloudflare, correr siempre:
+> sigue viva en Cloudflare **secuestra esa URL** y la página nueva nunca se puede visitar. En la
+> regeneración del 2026-09-06 volvieron **39** de las fichas que estaban en esta tabla; como las
+> reglas no llegaron a crearse, no se rompió nada, y se quitaron de acá para que no se creen.
+> Antes de tocar Cloudflare, correr siempre:
 >
 > ```bash
 > grep -oE '/producto/[a-z0-9-]+/' docs/seguridad-cloudflare.md | sed 's#/producto/##; s#/##' \
@@ -266,7 +271,10 @@ El catálogo dejó de ser `supplements-page.html` en la raíz y pasó a la carpe
 `catalogo/index.html`, servida en `/catalogo/`. Era la URL con más peso SEO del sitio
 (prioridad 0.9 en el sitemap), así que el 301 no es opcional.
 
-**Dar de alta esta regla SOLO después de confirmar que `/catalogo/` responde 200 en producción.**
+**Estado al 2026-09-07:** `/catalogo/` ya responde 200 en producción y la mudanza está desplegada,
+pero **esta regla todavía no está creada**. Mientras tanto la URL vieja sirve la página puente
+(`noindex` + `canonical` + `/js/redir-catalogo.js`), que funciona bien para las personas y le pasa
+la señal a Google por el canonical. El 301 es mejor y conviene crearlo, pero no es urgente.
 
 **Cloudflare → Rules → Redirect Rules → Create rule**
 

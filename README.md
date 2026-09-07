@@ -80,10 +80,12 @@ cada vez que cambien productos o categorías** y revisa el `git diff` antes de c
 >
 > ### ⚠️ Y el paso inverso: toda página que RESUCITA hay que desbloquearla
 >
-> Un producto reactivado en el panel recupera su carpeta en la siguiente corrida, pero **la regla
-> 301 vieja sigue viva en Cloudflare y secuestra la URL**: la ficha nueva no se puede abrir nunca.
-> Es el error más fácil de pasar por alto, porque `git status` no lo muestra — la carpeta aparece
-> como creada, no como problema. En la regeneración del 2026-09-06 volvieron **39** fichas así.
+> Un producto reactivado en el panel recupera su carpeta en la siguiente corrida. Si su regla 301
+> sigue viva en Cloudflare, **secuestra la URL**: la ficha nueva no se puede abrir nunca. Es el
+> error más fácil de pasar por alto, porque `git status` no lo muestra — la carpeta aparece como
+> creada, no como problema. En la regeneración del 2026-09-06 volvieron **39** fichas que estaban
+> listadas en la tabla §2.7 (por suerte esas reglas nunca se habían llegado a crear en el panel,
+> así que no llegó a romperse nada; se quitaron del documento para que no se creen).
 >
 > Correr esto **antes** de tocar Cloudflare y borrar allá cada regla que liste (y su fila del doc):
 >
