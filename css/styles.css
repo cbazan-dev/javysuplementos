@@ -201,10 +201,7 @@ body {
 
 .reel-card__preview {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 8px;
+  display: block;
   width: 100%;
   /* Proporción real de un reel (9:16) en vez de una altura fija: antes eran
      520px sin importar el ancho de la card, que en mobile (1 columna) se
@@ -212,45 +209,8 @@ body {
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(90, 180, 233, 0.28), transparent 55%),
-    linear-gradient(145deg, rgba(0, 220, 109, 0.14), transparent 56%),
-    var(--bg-1);
-  color: var(--text);
-  padding: clamp(18px, 3vw, 28px);
-  text-decoration: none;
-}
-
-.reel-card__preview::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: inherit;
-}
-
-.reel-card__preview span {
-  position: relative;
-  color: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.reel-card__preview strong {
-  position: relative;
-  color: var(--accent);
-  font-size: clamp(1rem, 2vw, 1.2rem);
-}
-
-.reel-card__preview:hover,
-.reel-card__preview:focus-visible {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(90, 180, 233, 0.38), transparent 55%),
-    linear-gradient(145deg, rgba(0, 220, 109, 0.24), transparent 56%),
-    var(--bg-1);
+  background: var(--bg-1);
+  object-fit: cover;
 }
 
 .reel-card__preview:focus-visible {

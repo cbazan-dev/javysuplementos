@@ -16,3 +16,7 @@ outputs/
 
 # Dependencias
 node_modules/
+
+# Videos de producto (se alojan en Supabase Storage, no en git)
+assets/videos/
+assets/videos-web/

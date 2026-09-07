@@ -43,11 +43,11 @@ async function initCategoriesSubmenu(host) {
   const hasRealCategories = families.every((f) => f.id);
   const hrefFor = (f) => (hasRealCategories
     ? `/categoria/${encodeURIComponent(slugOf(f))}/`
-    : `/supplements-page.html?cat=${encodeURIComponent(slugOf(f))}`);
+    : `/catalogo/?cat=${encodeURIComponent(slugOf(f))}`);
 
   const catalogIcon = window.javyIcons?.get?.("grid", "btn-icon nav__sub-all-icon") || "";
   const chevronIcon = window.javyIcons?.get?.("chevron-right", "btn-icon nav__sub-all-chevron") || "";
-  list.innerHTML = `<li><a class="nav__sub-all" href="/supplements-page.html">${catalogIcon}<span class="nav__sub-all-label">Ver catálogo completo</span>${chevronIcon}</a></li>`
+  list.innerHTML = `<li><a class="nav__sub-all" href="/catalogo/">${catalogIcon}<span class="nav__sub-all-label">Ver catálogo completo</span>${chevronIcon}</a></li>`
     + families
       .map((f) => `<li><a href="${hrefFor(f)}">${escapeAttr(f.name)}</a></li>`)
       .join("");

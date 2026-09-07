@@ -493,10 +493,16 @@ body.ad-body { min-height: 100vh; }
 .ad-drop .ad-ico { width: 26px; height: 26px; }
 .ad-drop strong { color: var(--pb-text); font-size: 0.9rem; }
 .ad-drop small { font-size: 0.76rem; }
-.ad-drop--filled { padding: 0; border-style: solid; }
-.ad-drop__preview { position: relative; width: 100%; }
-.ad-drop__preview img { width: 100%; height: 150px; object-fit: contain; background: var(--pb-white-06); border-radius: var(--ad-radius-sm); }
-.ad-drop__change { position: absolute; right: 8px; bottom: 8px; }
+.ad-drop--filled { padding: 10px; border-style: solid; cursor: default; }
+.ad-drop__preview { position: relative; width: 100%; display: grid; gap: 10px; justify-items: center; }
+/* Cuadrada como .product-card__media: si el recuadro fuera una tira ancha, la
+   misma foto se vería chica acá y grande en la card, que es justo lo que
+   confundía al cargar una imagen. */
+.ad-drop__preview img {
+  width: min(220px, 100%); aspect-ratio: 1 / 1; height: auto; display: block;
+  object-fit: contain; background: var(--pb-white-06); border-radius: var(--ad-radius-sm);
+}
+.ad-drop__tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
 /* ---- chips input ---- */
 .ad-chips-input { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--pb-line); border-radius: var(--ad-radius-sm); background: var(--pb-surface-2); }
@@ -804,6 +810,109 @@ body.ad-body { min-height: 100vh; }
 .ad-confirm h3 { font-weight: 800; font-size: 1.1rem; }
 .ad-confirm p { color: var(--pb-muted); font-size: 0.9rem; line-height: 1.5; }
 .ad-confirm__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ---- editor de encuadre (cropper) ---- */
+/* z-index por encima del confirm (300), que a su vez está por encima del
+   modal de producto (100): el cropper se abre desde adentro del drawer. */
+.ad-cropper-overlay {
+  position: fixed; inset: 0; z-index: 320;
+  display: grid; place-items: center; padding: 12px;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  animation: adFade .18s ease;
+}
+.ad-cropper {
+  /* Ancho definido, no min(...,100%): el overlay es un grid con
+     place-items:center, o sea que este item es shrink-to-fit, y ahí el
+     porcentaje colapsa a 0 y se lleva puesto al marco, que hereda ese 0 por
+     su propio 100%. Resultado: el editor abría con el cuadro en cero. */
+  width: 460px; max-width: 100%; max-height: 100%; overflow-y: auto;
+  display: grid; gap: 12px; padding: 16px;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius);
+  background: linear-gradient(180deg, #0d141d, #090d13);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.ad-cropper__head { display: flex; align-items: center; gap: 10px; }
+.ad-cropper__head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.ad-cropper__x {
+  margin-left: auto; display: grid; place-items: center;
+  width: 34px; height: 34px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--pb-muted); cursor: pointer;
+}
+.ad-cropper__x:hover { background: var(--pb-white-06); color: #fff; }
+.ad-cropper__x:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+
+/* El ancho se limita por altura de viewport a propósito: si el cuadrado
+   ocupara todo el ancho del diálogo, en una pantalla baja el aspect-ratio
+   desbordaría la grilla y se comería la fila del zoom. */
+.ad-cropper__frame {
+  position: relative; overflow: hidden; box-sizing: border-box;
+  /* Tamaño provisional: al abrir, layoutFrame() en js/admin/image-cropper.js le
+     fija ancho y alto en píxeles. Dejar que lo resolviera el CSS con
+     aspect-ratio + max-height (o min(100%, 48dvh)) terminaba en un cuadro de
+     alto cero, y el editor abría vacío sin decir nada. */
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius-sm);
+  background-color: var(--pb-surface-2);
+  /* damero: deja claro que el sobrante se guarda transparente, no blanco */
+  background-image:
+    linear-gradient(45deg, var(--pb-white-04) 25%, transparent 25%, transparent 75%, var(--pb-white-04) 75%),
+    linear-gradient(45deg, var(--pb-white-04) 25%, transparent 25%, transparent 75%, var(--pb-white-04) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  /* imprescindible: sin esto el gesto se lo lleva el scroll del modal en mobile */
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  cursor: grab;
+}
+.ad-cropper__frame:active { cursor: grabbing; }
+.ad-cropper__frame:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+.is-loading .ad-cropper__frame { cursor: progress; }
+
+.ad-cropper__img {
+  position: absolute; top: 0; left: 0;
+  will-change: transform; pointer-events: none; -webkit-user-drag: none;
+}
+.ad-cropper__loading {
+  position: absolute; inset: 0; margin: 0; display: grid; place-items: center;
+  color: var(--pb-muted); font-size: 0.85rem;
+}
+.ad-cropper__guides {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to right,  transparent calc(33.333% - 0.5px), var(--pb-white-10) calc(33.333% - 0.5px) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+    linear-gradient(to right,  transparent calc(66.666% - 0.5px), var(--pb-white-10) calc(66.666% - 0.5px) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.333% - 0.5px), var(--pb-white-10) calc(33.333% - 0.5px) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(66.666% - 0.5px), var(--pb-white-10) calc(66.666% - 0.5px) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px));
+}
+.is-loading .ad-cropper__guides { display: none; }
+
+.ad-cropper__controls { display: grid; gap: 10px; }
+.ad-cropper__zoom { display: flex; align-items: center; gap: 10px; }
+.ad-cropper__zoom-ico { display: grid; place-items: center; color: var(--pb-muted); }
+.ad-cropper__zoom-ico .ad-ico { width: 18px; height: 18px; }
+.ad-cropper__range {
+  flex: 1; min-height: 44px; background: transparent; cursor: pointer;
+  accent-color: var(--ad-green);
+}
+.ad-cropper__range:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+.ad-cropper__presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-cropper__presets .ad-btn { flex: 1 1 auto; }
+
+.ad-cropper__hint { margin: 0; color: var(--pb-muted); font-size: 0.8rem; line-height: 1.45; }
+.ad-cropper__error { margin: 0; color: #ffc1ce; font-size: 0.85rem; line-height: 1.45; }
+.ad-cropper__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.ad-cropper__actions .ad-btn { flex: 1 1 auto; }
+
+@media (min-width: 561px) {
+  .ad-cropper { width: 520px; max-width: 100%; padding: 22px; gap: 14px; }
+  .ad-cropper__actions .ad-btn { flex: 0 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-cropper-overlay { animation: none; }
+}
 
 /* ---- error de render (en vez de pantalla en blanco) ---- */
 .ad-error { border: 1px solid rgba(255,79,118,0.35); border-radius: var(--ad-radius); background: rgba(255,79,118,0.08); padding: 18px; display: grid; gap: 10px; }

@@ -336,6 +336,18 @@ function productCanBeQuoted(product) {
   return product.flavors.some((flavor) => flavor.available !== false);
 }
 
+// Las rutas de imagen de la BD son relativas ("img/products/x.webp"). El catálogo
+// dejó de vivir en la raíz y ahora se sirve en /catalogo/, donde el navegador las
+// resolvía contra /catalogo/img/... y daba 404. Se anclan a la raíz.
+// Misma lógica que window.javyProductCard.imageSrc (js/product-card.js), que es
+// la versión canónica; acá va aparte porque supplements.js no lo carga todavía.
+function cardImageSrc(path) {
+  const clean = String(path || "").trim();
+  if (!clean) return "/img/images/javi.webp";
+  if (/^(https?:)?\/\//i.test(clean)) return clean;
+  return clean.startsWith("/") ? clean : "/" + clean;
+}
+
 function isNoFlavorProduct(product) {
   return product?.flavor_mode === "no_flavor";
 }
@@ -801,6 +813,10 @@ function renderFilters() {
   updateSidebarClear();
 }
 
+// COPIA PENDIENTE DE MIGRAR: la versión canónica de la card vive en
+// js/product-card.js (window.javyProductCard.render). Esta se mantiene aparte
+// porque supplements.js no expone nada a window y depende de estado de módulo.
+// Si tocas la card, tócala también allá.
 function renderProductCard(product) {
   const canQuote = productCanBeQuoted(product);
   // encodeURIComponent + escapeHTML: la URL ya va segura y explícita en el markup.
@@ -812,7 +828,7 @@ function renderProductCard(product) {
     ${product.featured ? '<span class="product-card__badge">Destacado</span>' : ""}
 
     <a class="product-card__media product-card__media-link" href="${detailUrl}" aria-label="Ver ${escapeHTML(product.name)}">
-      <img src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" class="product-card__img" loading="lazy" decoding="async" />
+      <img src="${escapeHTML(cardImageSrc(product.image))}" alt="${escapeHTML(product.name)}" class="product-card__img" loading="lazy" decoding="async" />
     </a>
 
     <div class="product-card__info">
@@ -952,6 +968,18 @@ function renderLoading() {
 function injectStructuredData() {
   if (!products.length) return;
 
+  // URL canónica del producto para el JSON-LD. Antes se armaba siempre como
+  // `product-page.html?id=<uuid>`, o sea que el ItemList le declaraba a Google
+  // URLs que NO son las canónicas: la ficha real es /producto/<slug>/ y su
+  // propio canonical apunta ahí. Ahora se pasa por javyProductUrl, igual que
+  // los enlaces visibles de la card, y solo se cae al ?id= cuando el producto
+  // todavía no tiene página generada.
+  const canonicalUrl = (product) => {
+    const path = window.javyProductUrl?.forProduct?.(product)
+      || `/product-page.html?id=${encodeURIComponent(product.id)}`;
+    return SITE_BASE + String(path).replace(/^\/+/, "");
+  };
+
   const itemListElement = products.map((product, index) => {
     const offers = Number(product.price) > 0
       ? {
@@ -961,7 +989,7 @@ function injectStructuredData() {
           availability: productCanBeQuoted(product)
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
-          url: `${SITE_BASE}product-page.html?id=${encodeURIComponent(product.id)}`,
+          url: canonicalUrl(product),
         }
       : undefined;
 
@@ -969,7 +997,7 @@ function injectStructuredData() {
       "@type": "Product",
       name: product.name,
       image: toAbsoluteUrl(product.image),
-      url: `${SITE_BASE}product-page.html?id=${encodeURIComponent(product.id)}`,
+      url: canonicalUrl(product),
     };
     if (product.brand) item.brand = { "@type": "Brand", name: product.brand };
     if (offers) item.offers = offers;

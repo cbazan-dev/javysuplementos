@@ -201,6 +201,8 @@ function renderFeaturedProducts(productos) {
   lista.innerHTML = "";
   bindConsultationSync();
 
+  // COPIA PENDIENTE DE MIGRAR: la card canónica vive en js/product-card.js
+  // (window.javyProductCard.render). Si tocas la card, tócala también allá.
   productos.forEach((product) => {
     const canQuote = productCanBeQuoted(product);
     const card = document.createElement("article");
@@ -506,7 +508,7 @@ function renderHomeCategoriesFlat(products) {
     .map(([label, count]) => {
       const slug = slugify(label);
       return `
-      <a class="home-cat" href="/supplements-page.html?cat=${encodeURIComponent(slug)}"
+      <a class="home-cat" href="/catalogo/?cat=${encodeURIComponent(slug)}"
          aria-label="${escapeHTML(`${label}, ${count} producto${count === 1 ? "" : "s"}`)}">
         <span class="home-cat__icon" aria-hidden="true" data-javy-icon="${escapeHTML(iconForFamily(slug))}"></span>
         <span class="home-cat__name">${escapeHTML(label)}</span>
@@ -551,7 +553,7 @@ function renderHomeGoals(products) {
   if (!chips.length) return;
 
   homeGoalsRow.innerHTML = chips.map((goal) => `
-    <a class="home-goal" href="/supplements-page.html?obj=${encodeURIComponent(goal.slugs.join(","))}"
+    <a class="home-goal" href="/catalogo/?obj=${encodeURIComponent(goal.slugs.join(","))}"
        aria-label="${escapeHTML(`${goal.label}, ${goal.count} producto${goal.count === 1 ? "" : "s"}`)}">
       <span class="home-goal__icon" aria-hidden="true" data-javy-icon="${escapeHTML(goal.icon)}"></span>
       <span class="home-goal__label">${escapeHTML(goal.label)}</span>
@@ -585,7 +587,7 @@ function renderHomeBrands(products) {
   if (!brands.length) return;
 
   grid.innerHTML = brands.map(([brand, count]) => `
-    <a class="home-brand" href="/supplements-page.html?marca=${encodeURIComponent(slugify(brand))}"
+    <a class="home-brand" href="/catalogo/?marca=${encodeURIComponent(slugify(brand))}"
        aria-label="${escapeHTML(`${brand}, ${count} producto${count === 1 ? "" : "s"}`)}">
       <span class="home-brand__name">${escapeHTML(brand)}</span>
       <span class="home-brand__count" aria-hidden="true">${count} producto${count === 1 ? "" : "s"}</span>

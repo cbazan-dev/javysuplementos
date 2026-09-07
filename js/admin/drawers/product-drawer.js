@@ -3,12 +3,13 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-e7cb895c";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-e7cb895c";
-import { $, esc, ico } from "../helpers.js?v=adm-e7cb895c";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-e7cb895c";
-import { requestRerender } from "../shell.js?v=adm-e7cb895c";
-import { reloadProducts } from "../data.js?v=adm-e7cb895c";
+import { state, catById, families, typesOf } from "../state.js?v=adm-e13e4fa5";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-e13e4fa5";
+import { $, esc, ico } from "../helpers.js?v=adm-e13e4fa5";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-e13e4fa5";
+import { requestRerender } from "../shell.js?v=adm-e13e4fa5";
+import { reloadProducts } from "../data.js?v=adm-e13e4fa5";
+import { openImageCropper } from "../image-cropper.js?v=adm-e13e4fa5";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
@@ -360,7 +361,12 @@ export function openProductDrawer(product, opts = {}) {
 
   // cualquier cambio en el formulario marca el modal como "sucio" y refresca la preview
   content.addEventListener("input", () => { markDirty(); renderPreview(); });
-  content.addEventListener("change", () => { markDirty(); renderPreview(); });
+  content.addEventListener("change", (e) => {
+    // El input de archivo lo maneja setDraftImage(): si el admin abre el
+    // encuadre y cancela, el drawer no debe quedar marcado como sucio.
+    if (e.target.matches("[data-img-input]")) return;
+    markDirty(); renderPreview();
+  });
 
   overlay.querySelectorAll("[data-preview-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -401,27 +407,60 @@ export function openProductDrawer(product, opts = {}) {
 
   // image slot
   const imageSlot = get("[data-image-slot]");
+
+  // Única puerta de entrada para la imagen del draft. Mantiene la invariante
+  // "si hay draftImageFile.file, previewObjUrl es su objectURL vigente", que es
+  // lo que permite que renderImage() no fabrique un objectURL por render.
+  function setDraftImage(file) {
+    draftImageFile.file = file;
+    draftImageFile.cleared = false;
+    if (previewObjUrl) URL.revokeObjectURL(previewObjUrl);
+    previewObjUrl = URL.createObjectURL(file);
+    previewImgUrl = previewObjUrl;
+    markDirty();
+    renderImage();
+    renderPreview();
+  }
+
+  // Nombre legible para el archivo que sube al bucket (db.js arma el path con
+  // createSlug(file.name)): mejor "isomorph-28-whey" que "img-20260906-wa0031".
+  const cropFileName = () => (fEl("name").value || "").trim();
+
   function renderImage() {
-    const showSrc = draftImageFile.file ? URL.createObjectURL(draftImageFile.file)
+    const showSrc = draftImageFile.file ? previewObjUrl
       : (draftImageFile.cleared ? "" : data.image);
+    // Un SVG (el placeholder, sin ir más lejos) no tiene tamaño intrínseco y
+    // drawImage se vuelve impredecible, así que no se ofrece encuadrarlo.
+    const canRecrop = !!showSrc && showSrc !== PLACEHOLDER && !/\.svg(\?|$)/i.test(showSrc);
     if (showSrc) {
-      imageSlot.innerHTML = `<div class="ad-drop ad-drop--filled"><div class="ad-drop__preview"><img src="${esc(showSrc)}" alt="" /><button type="button" class="ad-btn ad-btn--ghost ad-btn--sm ad-drop__change" data-img-change>${ico("upload")}Cambiar</button></div></div>
+      imageSlot.innerHTML = `<div class="ad-drop ad-drop--filled"><div class="ad-drop__preview"><img src="${esc(showSrc)}" alt="" /><div class="ad-drop__tools">${canRecrop ? `<button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-recrop>${ico("grid")}Encuadre</button>` : ""}<button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-change>${ico("upload")}Cambiar</button></div></div></div>
         <button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-clear style="margin-top:8px">${ico("trash")}Quitar imagen</button>
         <input type="file" accept="image/*" data-img-input hidden />`;
     } else {
-      imageSlot.innerHTML = `<label class="ad-drop">${ico("upload")}<strong>Subir imagen del producto</strong><small>PNG o WebP con fondo transparente · toca para elegir</small><input type="file" accept="image/*" data-img-input hidden /></label>`;
+      imageSlot.innerHTML = `<label class="ad-drop">${ico("upload")}<strong>Subir imagen del producto</strong><small>PNG o WebP con fondo transparente · vas a poder encuadrarla</small><input type="file" accept="image/*" data-img-input hidden /></label>`;
     }
     if (window.javyIcons) window.javyIcons.enhance(imageSlot);
     const input = imageSlot.querySelector("[data-img-input]");
-    input.addEventListener("change", (e) => {
+    input.addEventListener("change", async (e) => {
       const file = e.target.files[0];
-      if (file) {
-        draftImageFile.file = file; draftImageFile.cleared = false;
-        if (previewObjUrl) URL.revokeObjectURL(previewObjUrl);
-        previewObjUrl = URL.createObjectURL(file);
-        previewImgUrl = previewObjUrl;
-        renderImage(); renderPreview();
-      }
+      // Limpiar el input permite volver a elegir el MISMO archivo después de
+      // cancelar el encuadre; si no, el change no dispara y parece roto.
+      e.target.value = "";
+      if (!file) return;
+      const cropped = await openImageCropper({
+        file,
+        fileName: cropFileName() || file.name,
+        title: "Encuadrar imagen",
+      });
+      if (!cropped) return; // canceló: el draft queda como estaba
+      setDraftImage(cropped);
+    });
+    const recropBtn = imageSlot.querySelector("[data-img-recrop]");
+    if (recropBtn) recropBtn.addEventListener("click", async () => {
+      const cropped = draftImageFile.file
+        ? await openImageCropper({ file: draftImageFile.file, fileName: cropFileName() || draftImageFile.file.name })
+        : await openImageCropper({ src: data.image, fileName: cropFileName() || data.image });
+      if (cropped) setDraftImage(cropped);
     });
     const changeBtn = imageSlot.querySelector("[data-img-change]");
     if (changeBtn) changeBtn.addEventListener("click", () => input.click());

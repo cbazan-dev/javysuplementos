@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Seguridad: CSP baseline versionada. El enforce real + frame-ancestors lo aplica Cloudflare (ver docs/seguridad-cloudflare.md). -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://fodwjfiyfmscklqsqrip.supabase.co https://*.fbcdn.net https://www.facebook.com; connect-src 'self' https://cdn.jsdelivr.net https://fodwjfiyfmscklqsqrip.supabase.co wss://fodwjfiyfmscklqsqrip.supabase.co https://cloudflareinsights.com https://www.facebook.com; frame-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://fodwjfiyfmscklqsqrip.supabase.co https://*.fbcdn.net https://www.facebook.com; media-src 'self' https://fodwjfiyfmscklqsqrip.supabase.co; connect-src 'self' https://cdn.jsdelivr.net https://fodwjfiyfmscklqsqrip.supabase.co wss://fodwjfiyfmscklqsqrip.supabase.co https://cloudflareinsights.com https://www.facebook.com; frame-src 'none'" />
     <!-- Modo mantenimiento: bloquea el sitio público mientras esté activo (ver js/mantenimiento.js). -->
     <script src="/js/mantenimiento.js?v=abierto-1"></script>
     <!-- Modo claro: aplica la preferencia guardada ANTES de pintar, para que no haya parpadeo (ver js/theme-init.js). -->
@@ -230,18 +230,18 @@
           </p>
           <a class="instagram-videos__cta" href="https://www.instagram.com/javy.suplementos" target="_blank" rel="noopener">Ver más reels</a>
         </div>
-      <div class="instagram-videos__grid reveal reveal--stagger" aria-label="Reels educativos de suplementos">
+      <div class="instagram-videos__grid reveal reveal--stagger" aria-label="Videos de productos">
         <article class="reel-card">
-          <a class="reel-card__preview" href="https://www.instagram.com/reel/Db0_BOrBkPt/" target="_blank" rel="noopener" aria-label="Ver reel educativo sobre suplementos en Instagram"><span>Reel educativo</span><strong>Ver en Instagram</strong></a>
+          <video class="reel-card__preview" src="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-videos/creatina-olympus.mp4" controls playsinline preload="metadata" aria-label="Video de Creatina Olympus"></video>
         </article>
         <article class="reel-card">
-          <a class="reel-card__preview" href="https://www.instagram.com/reel/Db1xz6zJFb3/" target="_blank" rel="noopener" aria-label="Ver reel educativo sobre suplementos en Instagram"><span>Reel educativo</span><strong>Ver en Instagram</strong></a>
+          <video class="reel-card__preview" src="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-videos/liv-52.mp4" controls playsinline preload="metadata" aria-label="Video de Liv 52"></video>
         </article>
         <article class="reel-card">
-          <a class="reel-card__preview" href="https://www.instagram.com/reel/Db_mD34Mcj7/" target="_blank" rel="noopener" aria-label="Ver reel educativo sobre suplementos en Instagram"><span>Reel educativo</span><strong>Ver en Instagram</strong></a>
+          <video class="reel-card__preview" src="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-videos/creatina-mitos-mujeres.mp4" controls playsinline preload="metadata" aria-label="Video: ¿la creatina es solo para hombres?"></video>
         </article>
         <article class="reel-card">
-          <a class="reel-card__preview" href="https://www.instagram.com/reel/Db_rjU4PY7t/" target="_blank" rel="noopener" aria-label="Ver reel educativo sobre suplementos en Instagram"><span>Reel educativo</span><strong>Ver en Instagram</strong></a>
+          <video class="reel-card__preview" src="https://fodwjfiyfmscklqsqrip.supabase.co/storage/v1/object/public/product-videos/promo-2x21.mp4" controls playsinline preload="metadata" aria-label="Video promocional 2x21 de creatina"></video>
         </article>
       </div>
     </section>
@@ -317,7 +317,7 @@
               entrega. ¿Todavía no? Escríbenos y te orientamos según tu objetivo.
             </p>
             <div class="home-about__actions">
-              <a class="btn btn--primary" href="supplements-page.html">Ver catálogo</a>
+              <a class="btn btn--primary" href="/catalogo/">Ver catálogo</a>
               <a class="btn btn--secondary" data-javy-whatsapp
                  data-whatsapp-message="Hola Javy, necesito asesoría sobre suplementos"
                  target="_blank" rel="noopener">Escribir por WhatsApp</a>
@@ -327,7 +327,7 @@
           <aside class="home-about__brands" aria-labelledby="home-brands-title" hidden>
             <h3 class="home-about__brands-title" id="home-brands-title">Marcas que trabajamos</h3>
             <div class="home-brands__grid" id="home-brands__grid"></div>
-            <a class="home-about__brands-link" href="supplements-page.html">Ver todas las marcas</a>
+            <a class="home-about__brands-link" href="/catalogo/">Ver todas las marcas</a>
           </aside>
         </div>
       </section>
@@ -351,7 +351,7 @@
         <h3 class="footer__title">Navegación</h3>
         <ul class="footer__list">
           <li><a href="index.html">Inicio</a></li>
-          <li><a href="supplements-page.html">Productos</a></li>
+          <li><a href="/catalogo/">Productos</a></li>
           <li><a href="#productos">Productos destacados</a></li>
           <li><a href="#educacion">Reels educativos</a></li>
           <li><a href="contacto.html">Sobre nosotros</a></li>

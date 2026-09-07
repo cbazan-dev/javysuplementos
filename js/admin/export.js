@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-e7cb895c";
+import { esc } from "./helpers.js?v=adm-e13e4fa5";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -104,7 +104,7 @@ function mainHeader(doc, title, meta, logo) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...PDF.white);
   doc.text("JAVY SUPLEMENTOS", MARGIN + 62, 37);
   doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...PDF.sky);
-  doc.text("INFORME DEL PANEL", MARGIN + 62, 51);
+  doc.text("Visita javysuplementos.com para ver los productos", MARGIN + 62, 51);
   doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(...PDF.ink);
   doc.text(String(title || "Informe"), MARGIN, 114);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...PDF.muted);
@@ -138,7 +138,7 @@ function addFooters(doc) {
     doc.setPage(page);
     doc.setDrawColor(...PDF.line); doc.line(MARGIN, FOOTER_Y - 12, width - MARGIN, FOOTER_Y - 12);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...PDF.muted);
-    doc.text("Javy Suplementos · Informe generado desde el panel administrativo", MARGIN, FOOTER_Y);
+    doc.text("Javy Suplementos", MARGIN, FOOTER_Y);
     doc.text(`Página ${page} de ${total}`, width - MARGIN, FOOTER_Y, { align: "right" });
   }
 }
@@ -149,7 +149,7 @@ function baseTable(head, body, startY, topMargin = 96) {
     margin: { top: topMargin, left: MARGIN, right: MARGIN, bottom: 48 },
     showHead: "everyPage", pageBreak: "auto", rowPageBreak: "avoid",
     styles: { font: "helvetica", fontSize: 8.5, textColor: PDF.ink, fillColor: PDF.white, lineColor: PDF.line, lineWidth: 0.4, cellPadding: { top: 6, right: 7, bottom: 6, left: 7 }, overflow: "linebreak", valign: "middle" },
-    headStyles: { fillColor: PDF.ink, textColor: PDF.white, fontStyle: "bold", fontSize: 7.5, cellPadding: { top: 7, right: 7, bottom: 7, left: 7 } },
+    headStyles: { fillColor: PDF.ink, textColor: PDF.white, fontStyle: "bold", fontSize: 7.5, cellPadding: { top: 3, right: 7, bottom: 3, left: 7 } },
     alternateRowStyles: { fillColor: PDF.stripe },
   };
 }
@@ -204,9 +204,11 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
       ...baseTable(head, body, cursorY + 30, 116),
       tableWidth,
       styles: { ...baseTable(head, body, 0).styles, minCellHeight: 46 },
+      // minCellHeight es para las filas con foto; la cabecera se queda ceñida al texto.
+      headStyles: { ...baseTable(head, body, 0).headStyles, minCellHeight: 0 },
       columnStyles: detailLabel
-        ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "right", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
-        : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "right", fontStyle: "bold" } },
+        ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "center", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
+        : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "center", fontStyle: "bold" } },
       willDrawPage: (data) => {
         if (data.pageNumber > 1) {
           continuationHeader(doc, title);
@@ -215,6 +217,8 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
       },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 0) data.cell.text = [];
+        // columnStyles no llega a la cabecera: centramos "Precio actual" sobre el monto.
+        if (data.section === "head" && data.column.index === 2) data.cell.styles.halign = "center";
       },
       didDrawCell: (data) => {
         if (data.section !== "body" || data.column.index !== 0) return;
@@ -308,12 +312,12 @@ export function printReport(title, meta, columns, rows, options = {}) {
   const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title>
   <style>
     @page{size:A4;margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
-    .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.08em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
-    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:right;font-weight:700;white-space:nowrap;}
+    .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.04em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
+    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;padding-top:3px;padding-bottom:3px;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:center;font-weight:700;white-space:nowrap;}
     .report-footer{position:fixed;bottom:-11mm;left:0;right:0;border-top:1px solid #dce3ea;padding-top:4px;color:#5b6c7d;font-size:8pt;display:flex;justify-content:space-between;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
-    <header class="report-header"><img src="${LOGO_URL}" alt="Javy Suplementos" /><div><p class="brand">JAVY SUPLEMENTOS · INFORME DEL PANEL</p><h1>${esc(title)}</h1><p class="meta">${esc(meta)}</p></div></header>
-    ${content}<footer class="report-footer"><span>Javy Suplementos · Informe generado desde el panel administrativo</span><span>${esc(meta)}</span></footer>
+    <header class="report-header"><img src="${LOGO_URL}" alt="Javy Suplementos" /><div><p class="brand">JAVY SUPLEMENTOS · Visita javysuplementos.com para ver los productos</p><h1>${esc(title)}</h1><p class="meta">${esc(meta)}</p></div></header>
+    ${content}<footer class="report-footer"><span>Javy Suplementos</span><span>${esc(meta)}</span></footer>
     <script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>
   </body></html>`;
   w.document.open();

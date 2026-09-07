@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-e7cb895c";
-import { esc, ico, peso, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-e7cb895c";
-import { paint } from "../view.js?v=adm-e7cb895c";
-import { toast } from "../ui.js?v=adm-e7cb895c";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-e7cb895c";
+import { state, catById, families, typesOf } from "../state.js?v=adm-e13e4fa5";
+import { esc, ico, peso, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-e13e4fa5";
+import { paint } from "../view.js?v=adm-e13e4fa5";
+import { toast } from "../ui.js?v=adm-e13e4fa5";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-e13e4fa5";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -222,13 +222,21 @@ function categoryLabel(p) {
   return p.category || (p.category_id ? (catById(p.category_id)?.name || "—") : "—");
 }
 
+// Sube por la jerarquía hasta la familia (categoría principal). Solo se usa al
+// exportar: en pantalla los informes siguen mostrando la categoría del producto.
+function familyLabel(p) {
+  let cat = p.category_id ? catById(p.category_id) : null;
+  for (let i = 0; cat?.parent_id && i < 5; i++) cat = catById(cat.parent_id) || cat;
+  return cat?.name || p.category || "";
+}
+
 // Datos exclusivos de PDF/impresión. La tabla visible no cambia de orden ni
-// columnas; el catálogo se agrupa por categoría solamente al exportar.
+// columnas; el catálogo se agrupa por categoría principal solamente al exportar.
 function pdfCatalogItems(products, detail = () => "") {
   return products.map((p) => ({
     name: p.name || "—",
     brand: p.brand || "",
-    category: categoryLabel(p),
+    category: familyLabel(p),
     price: peso(p.price),
     detail: detail(p),
     image: p.image || "",
