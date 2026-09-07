@@ -18,7 +18,10 @@ manual, por chat.
   (DNS, cabeceras de seguridad, rate-limit y Turnstile en [`docs/seguridad-cloudflare.md`](docs/seguridad-cloudflare.md)).
 - **Previews:** Vercel despliega automáticamente las ramas de desarrollo (puede tener password
   protection → da 401 al acceder desde afuera).
-- **Sin** linter, formatter, tests ni CI/CD.
+- **Sin** linter, formatter ni tests. La única automatización es
+  `.github/workflows/regenerar-catalogo.yml`, que cada noche regenera el HTML estático del
+  catálogo desde Supabase y abre un PR a `main` (nunca commitea directo, y aborta si alguna
+  página fuese a desaparecer: esas bajas necesitan un 301 manual en Cloudflare).
 
 ---
 
@@ -75,6 +78,24 @@ cada vez que cambien productos o categorías** y revisa el `git diff` antes de c
 > `canonical` + `noindex, follow`. Es un respaldo, no un reemplazo del 301. Para productos no
 > existe ese respaldo: sin la regla de Cloudflare, la URL simplemente muere.
 >
+> ### ⚠️ Y el paso inverso: toda página que RESUCITA hay que desbloquearla
+>
+> Un producto reactivado en el panel recupera su carpeta en la siguiente corrida, pero **la regla
+> 301 vieja sigue viva en Cloudflare y secuestra la URL**: la ficha nueva no se puede abrir nunca.
+> Es el error más fácil de pasar por alto, porque `git status` no lo muestra — la carpeta aparece
+> como creada, no como problema. En la regeneración del 2026-09-06 volvieron **39** fichas así.
+>
+> Correr esto **antes** de tocar Cloudflare y borrar allá cada regla que liste (y su fila del doc):
+>
+> ```bash
+> grep -oE '/producto/[a-z0-9-]+/' docs/seguridad-cloudflare.md | sed 's#/producto/##; s#/##' \
+>   | sort -u | while read s; do [ -d "producto/$s" ] && echo "BORRAR REGLA: /producto/$s/"; done
+> ```
+>
+> Lo mismo vale para categorías: si un slug retirado vuelve a ser una familia viva, hay que
+> **sacarlo** de `LEGACY_CATEGORY_REDIRECTS` y borrar su regla. El script ahora avisa con un
+> `⚠` cuando detecta ese choque, en vez de pisar la página real con un stub de redirección.
+>
 > Comando para listar lo borrado en la última corrida:
 >
 > ```bash
@@ -96,7 +117,8 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 ## Estructura de archivos
 
 ```text
-/                      páginas .html (7)
+/                      páginas .html sueltas
+/catalogo/index.html   el catálogo filtrable, servido en /catalogo/
 /producto/<slug>/      fichas estáticas generadas (una por producto)
 /categoria/<slug>/     landings de categoría generadas
 /css                   estilos
@@ -120,7 +142,9 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 ## Páginas
 
 - `index.html` — home: hero, productos destacados, reels de Instagram, footer.
-- `supplements-page.html` — catálogo filtrable.
+- `catalogo/index.html` — catálogo filtrable, servido en `/catalogo/`. La URL vieja
+  `supplements-page.html` quedó como puente (noindex + canonical); el 301 real lo aplica
+  Cloudflare (`docs/seguridad-cloudflare.md` §2.8).
 - `product-page.html` — detalle de producto, carga por `?id=` (UUID o legacy_id). Sigue vivo
   para no romper enlaces ya compartidos, pero su `canonical` apunta a `/producto/<slug>/`.
 - `producto/<slug>/index.html` — **generadas** por `scripts/generate-pages.mjs`. Traen title,
@@ -128,9 +152,9 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
   Facebook no ejecutan JS, así que sin esto el preview salía genérico). Se hidratan con
   Supabase al cargar; si Supabase no responde, conservan el contenido estático.
 - `categoria/<slug>/index.html` — **generadas**. Landing por categoría con al menos 3 productos.
-  Usan la misma card y la misma grilla (`.catalog-grid`) que `supplements-page.html`: la card va
+  Usan la misma card y la misma grilla (`.catalog-grid`) que `catalogo/index.html`: la card va
   escrita en el HTML (para el scraper) y `js/categoria.js` le engancha la cotización al cargar.
-  Los chips de subcategoría son `<a>` a `supplements-page.html?fam=…&tipo=…`, o sea que filtrar
+  Los chips de subcategoría son `<a>` a `/catalogo/?fam=…&tipo=…`, o sea que filtrar
   lleva al catálogo completo y no a otra página aparte.
 - `contacto.html` — página Sobre nosotros, acceso a WhatsApp y selector Google Maps/Waze.
 - `testimonios.html` — testimonios de clientes.
@@ -179,11 +203,21 @@ Los scripts cargan con `defer` y se comunican por objetos en `window`:
   persistencia y mensaje de WhatsApp.
 - `window.javyAuth` — `js/auth.js`. Sesión de admin y verificación de perfil.
 - `window.javyIcons` — `js/icons.js`. Iconos SVG inline (`get`, `enhance`).
+- `window.javyProductCard` — `js/product-card.js`. La card de producto **canónica**:
+  `render(product, {headingLevel, categories})` la arma desde cero, `hydrate(card, product)`
+  refresca una que ya vino escrita en el HTML, `markOrphan(card)` marca la de un producto que
+  ya no está en la base. Hoy la consume solo `categoria.js`; el catálogo, la home y los
+  relacionados de la ficha siguen con su propia copia (cada una lleva un comentario
+  "COPIA PENDIENTE DE MIGRAR"). Si tocas la card, tócala también en `generate-pages.mjs`,
+  que emite el gemelo en HTML.
 - `window.navigateWithTransition` — `js/include-nav.js`. Inyecta el nav y hace transiciones con fade.
 - `window.PRODUCTS` — `js/product-data.js`. ~180 productos hardcodeados (fallback, ver abajo).
 
 Otros archivos de `js/`: `script.js` (home), `supplements.js` (catálogo + filtros),
-`categoria.js` (engancha la cotización a las cards ya escritas de `categoria/**`),
+`categoria.js` (engancha la cotización a las cards ya escritas de `categoria/**` y las **hidrata**
+con los precios y la disponibilidad de ahora, más los productos que entraron después de generar
+el HTML; solo cuando los datos vienen de Supabase, nunca desde el respaldo local, que puede ser
+más viejo que la propia página),
 `product-page.js` (detalle + meta tags dinámicos), `contacto.js` (WhatsApp + ubicación), `login.js`,
 `testimonials.js`, `testimonials-data.js`, `supabase-config.js`, `whatsapp-config.js`.
 
@@ -355,7 +389,8 @@ node --check js/product-page.js
 - Productos duplicados entre Supabase y `product-data.js` → decidir una sola fuente de verdad.
 - Columnas redundantes en `schema.sql` (`nombre`/`name`, `price`/`precio_centavos`).
 - Imágenes PNG sin optimizar (algunas >1MB).
-- Sin tests, linter ni CI/CD.
+- Sin tests ni linter. La única automatización es la regeneración nocturna del catálogo
+  (`.github/workflows/regenerar-catalogo.yml`), que abre PR en vez de commitear a `main`.
 - Breakpoints dispares entre módulos (900/767/620/520/480px). Estándar propuesto para código
   **nuevo**: `480px`, `768px`, `1024px`. La migración de los existentes queda pendiente (requiere
   revisión visual página por página).
