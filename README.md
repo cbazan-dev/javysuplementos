@@ -332,10 +332,12 @@ tabla, así que cambiarlos no mueve `products.updated_at`.
 Si la migración `fase12-precios.sql` no está aplicada, `state.pricingSupported` queda en `false`:
 la sección lo avisa y el resto del panel funciona igual.
 
-En **Ajustes → Informes**, la *Lista de precios* deja elegir con casillas qué precios incluir. La
-tabla en pantalla suma una columna por precio; en el PDF (formato catálogo) el primero que se pidió
-va como precio destacado y los demás, rotulados, en la línea de detalle. Los que no estén asignados
-salen como `—`, y si el informe lleva precios internos el propio documento lo advierte.
+En **Ajustes → Informes**, la *Lista de precios a medida* es el único generador de listas: los
+filtros (disponibilidad, categoría, marca y filtro extra) deciden qué productos entran y las
+casillas, qué precios se incluyen. La tabla en pantalla suma una columna por precio; en el PDF
+(formato catálogo) el primero que se pidió va como precio destacado y los demás, rotulados, en la
+línea de detalle. Los que no estén asignados salen como `—`, y si el informe lleva precios internos
+el propio documento lo advierte.
 
 ---
 

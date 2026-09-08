@@ -10,8 +10,8 @@
    compositor mueve la imagen a 60fps sin repintar, y como exportamos ese mismo
    <img>, la orientación EXIF de las fotos de celular se respeta sola.
    ============================================================================ */
-import { esc, ico } from "./helpers.js?v=adm-ef5d81a9";
-import { toast } from "./ui.js?v=adm-ef5d81a9";
+import { esc, ico } from "./helpers.js?v=adm-d93a4d8b";
+import { toast } from "./ui.js?v=adm-d93a4d8b";
 
 const RANGE = 1000;          // resolución del slider de zoom
 const MAX_ZOOM_FACTOR = 4;   // cuánto se puede acercar más allá de "llenar"

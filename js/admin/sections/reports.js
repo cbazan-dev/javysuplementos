@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-ef5d81a9";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-ef5d81a9";
-import { paint } from "../view.js?v=adm-ef5d81a9";
-import { toast } from "../ui.js?v=adm-ef5d81a9";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-ef5d81a9";
+import { state, catById, families, typesOf } from "../state.js?v=adm-d93a4d8b";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-d93a4d8b";
+import { paint } from "../view.js?v=adm-d93a4d8b";
+import { toast } from "../ui.js?v=adm-d93a4d8b";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-d93a4d8b";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -16,7 +16,6 @@ export function renderReportsTab(container) {
     </div>
     ${cardMedida()}
     <div class="ad-rep-grid">
-      ${cardPrecios()}
       ${card("stock", "package", "Stock: agotados", "Productos agotados o no disponibles y desde cuándo.")}
       ${card("ofertas", "tags", "Ofertas y descuentos", "Productos en oferta: precio anterior, nuevo y % de descuento.")}
       ${cardActividad()}
@@ -28,26 +27,19 @@ export function renderReportsTab(container) {
     btn.addEventListener("click", () => onGenerate(container, btn.getAttribute("data-rep")));
   });
 
-  // Sin ningún precio marcado no hay informe que generar.
-  const boxes = [...container.querySelectorAll("[data-rep-price]")];
-  const generar = container.querySelector('[data-rep="precios"]');
-  const syncPrecios = () => {
-    if (generar) generar.disabled = !boxes.some((b) => b.checked);
-  };
-  boxes.forEach((b) => b.addEventListener("change", syncPrecios));
-  syncPrecios();
-
   // Contador en vivo: saber cuántos productos entran ANTES de generar evita el
-  // ida y vuelta de armar un PDF para descubrir que quedó vacío.
-  const refrescarConteo = () => {
+  // ida y vuelta de armar un PDF para descubrir que quedó vacío. Sin ningún
+  // precio marcado tampoco hay informe que generar.
+  const cajas = [...container.querySelectorAll("[data-rep-price]")];
+  const refrescar = () => {
     const n = filtrarProductos(leerFiltros(container)).length;
     const el = container.querySelector("[data-rep-count]");
     if (el) el.textContent = n === 1 ? "1 producto" : `${n} productos`;
     const btn = container.querySelector('[data-rep="medida"]');
-    if (btn) btn.disabled = n === 0;
+    if (btn) btn.disabled = n === 0 || !cajas.some((b) => b.checked);
   };
-  container.querySelectorAll("[data-mf]").forEach((el) => el.addEventListener("change", refrescarConteo));
-  refrescarConteo();
+  container.querySelectorAll("[data-mf], [data-rep-price]").forEach((el) => el.addEventListener("change", refrescar));
+  refrescar();
 }
 
 /* ----------------------------- informe a medida ----------------------------- */
@@ -81,9 +73,9 @@ function cardMedida() {
   return `<div class="ad-panel ad-rep-medida">
     <div class="ad-rep-medida__head">
       <div>
-        <p class="ad-kicker">Informe a medida</p>
+        <p class="ad-kicker">Lista de precios a medida</p>
         <h3>Arma el PDF con lo que necesites</h3>
-        <p class="ad-field__help">Combina los filtros y genera solo esa parte del catálogo.</p>
+        <p class="ad-field__help">Elige los filtros y los precios que quieres ver: la lista de precios sale con esa combinación.</p>
       </div>
       <span class="ad-counter"><strong data-rep-count>—</strong></span>
     </div>
@@ -119,15 +111,41 @@ function cardMedida() {
         </select>
       </div>
     </div>
+    <div class="ad-field ad-rep-medida__precios">
+      <span class="ad-field__label">Precios a incluir</span>
+      <div class="ad-rep-opts ad-rep-opts--row" role="group" aria-label="Precios a incluir">
+        ${optPrecio("venta", "Precio de venta", true)}
+        ${state.pricingSupported ? optPrecio("revendedor", "Precio revendedor", false) : ""}
+        ${state.pricingSupported ? optPrecio("javy", "Precio Javy", false) : ""}
+      </div>
+      <p class="ad-field__help">Los precios internos no se publican en la tienda: el PDF sale marcado como de uso interno.</p>
+    </div>
     <div class="ad-save-row">
       <button class="ad-btn ad-btn--primary" type="button" data-rep="medida">${ico("file-text")}Generar informe</button>
     </div>
   </div>`;
 }
 
+/* Casillas de precio: el mismo informe sirve para la lista pública, la de
+   revendedor o una combinada. Los precios internos solo se ofrecen si la
+   migración fase12 está aplicada. */
+function optPrecio(key, label, checked) {
+  return `<label class="ad-rep-opt">
+    <input type="checkbox" data-rep-price="${key}"${checked ? " checked" : ""} />
+    <span>${esc(label)}</span>
+  </label>`;
+}
+
 function leerFiltros(container) {
   const v = (k) => container.querySelector(`[data-mf="${k}"]`)?.value || "";
   return { estado: v("estado") || "todos", categoria: v("categoria"), marca: v("marca"), extra: v("extra") };
+}
+
+/* Qué precios pidió el admin. Venta viene marcado por defecto: es el informe
+   que ya existía antes de que hubiera precios internos. */
+function preciosSeleccionados(container) {
+  const on = (key) => !!container.querySelector(`[data-rep-price="${key}"]`)?.checked;
+  return { venta: on("venta"), revendedor: on("revendedor"), javy: on("javy") };
 }
 
 function filtrarProductos(f) {
@@ -155,8 +173,9 @@ function filtrarProductos(f) {
   });
 }
 
-// Título que dice qué se filtró: un PDF guardado sin esto no se sabe qué trae.
-function tituloMedida(f) {
+// Título que dice qué se filtró y qué precios trae: un PDF guardado sin esto no
+// se sabe qué contiene, y en el celular conviven varios informes parecidos.
+function tituloMedida(f, sel) {
   const partes = [];
   if (f.categoria.startsWith("fam:")) partes.push(catById(f.categoria.slice(4))?.name || "categoría");
   else if (f.categoria.startsWith("cat:")) partes.push(catById(f.categoria.slice(4))?.name || "categoría");
@@ -166,21 +185,73 @@ function tituloMedida(f) {
   if (f.extra === "inicio") partes.push("destacados del inicio");
   if (f.extra === "sin-precio") partes.push("sin precio");
   if (f.extra === "sin-imagen") partes.push("sin imagen");
-  return partes.length ? `Catálogo — ${partes.join(" · ")}` : "Catálogo completo";
+  // Solo con el precio de venta conserva el nombre de siempre, así que el
+  // archivo que ya se venía generando no cambia de nombre.
+  const precios = [sel.revendedor && "revendedor", sel.javy && "Javy"].filter(Boolean);
+  if (sel.venta && precios.length) precios.unshift("venta");
+  if (precios.length) {
+    const lista = precios.length > 1 ? `${precios.slice(0, -1).join(", ")} y ${precios.at(-1)}` : precios[0];
+    partes.push(`precio ${lista}`);
+  }
+  return partes.length ? `Lista de precios — ${partes.join(" · ")}` : "Lista de precios actuales";
 }
 
-function repMedida(f) {
-  const products = filtrarProductos(f);
-  const rows = products
+/* `sel` decide qué precios salen. Las columnas de identificación y el estado van
+   siempre; "Antes (oferta)" solo acompaña al precio de venta, porque sin él un
+   precio tachado no dice nada.
+
+   Los precios sin asignar salen como "—", igual que la columna de oferta cuando
+   no hay oferta: en una tabla un hueco en blanco se lee como un fallo de
+   generación, y "$0" sería directamente un dato falso.
+
+   En el PDF (formato catálogo) el precio grande es el primero que se pidió y los
+   demás van en la línea de detalle, para no romper ese diseño. */
+function repMedida(f, sel) {
+  const products = filtrarProductos(f)
     .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"))
-    .map((p) => [p.name || "—", p.brand || "—", categoryLabel(p), p.presentation || "—", peso(p.price), isAvailable(p) ? "Disponible" : "Agotado"]);
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"));
+
+  const columns = ["Producto", "Marca", "Categoría", "Presentación"];
+  if (sel.venta) columns.push("Precio", "Antes (oferta)");
+  if (sel.revendedor) columns.push("Revendedor");
+  if (sel.javy) columns.push("Javy");
+  columns.push("Estado");
+
+  const rows = products.map((p) => {
+    const row = [p.name || "—", p.brand || "—", categoryLabel(p), p.presentation || "—"];
+    if (sel.venta) row.push(peso(p.price), hasOffer(p) ? peso(p.old_price) : "—");
+    if (sel.revendedor) row.push(pesoOpt(p.reseller_price));
+    if (sel.javy) row.push(pesoOpt(p.javy_price));
+    row.push(isAvailable(p) ? "Disponible" : "Agotado");
+    return row;
+  });
+
+  // En el PDF el primero que se pidió es el precio destacado; los demás van
+  // rotulados en la línea de detalle, para que nadie confunda uno con otro.
+  const elegidos = [
+    (sel.venta || (!sel.revendedor && !sel.javy)) && { label: "Venta", value: (p) => peso(p.price) },
+    sel.revendedor && { label: "Revendedor", value: (p) => pesoOpt(p.reseller_price) },
+    sel.javy && { label: "Javy", value: (p) => pesoOpt(p.javy_price) },
+  ].filter(Boolean);
+  const principal = (p) => elegidos[0].value(p);
+  const otros = (p) => elegidos.slice(1).map((e) => `${e.label} ${e.value(p)}`).join(" · ");
+  // Con un solo precio la línea de detalle queda libre para el estado, que es
+  // lo que importa cuando el informe mezcla disponibles y agotados.
+  const detalle = elegidos.length > 1 ? otros : (p) => (isAvailable(p) ? "" : "Agotado");
+  const interno = sel.revendedor || sel.javy;
+
   return {
-    title: tituloMedida(f),
-    columns: ["Producto", "Marca", "Categoría", "Presentación", "Precio", "Estado"],
+    title: tituloMedida(f, sel),
+    columns,
     rows,
     empty: "Ningún producto coincide con esos filtros. Afloja alguno y vuelve a generar.",
-    pdf: { products: pdfCatalogItems(products, (p) => (isAvailable(p) ? "" : "Agotado")) },
+    // Este PDF se comparte por WhatsApp desde el celular: si lleva precios que
+    // no son públicos, el propio documento tiene que decirlo.
+    metaExtra: interno ? "Uso interno — contiene precios que no se publican en la tienda" : "",
+    pdf: {
+      products: pdfCatalogItems(products, detalle, principal),
+      detailLabel: elegidos.length > 1 ? "Otros precios" : "",
+    },
   };
 }
 
@@ -191,35 +262,6 @@ function card(key, icon, title, desc) {
     <p>${esc(desc)}</p>
     <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-rep="${key}">${ico("file-text")}Generar</button>
   </div>`;
-}
-
-/* Igual que cardActividad, pero con casillas: el mismo informe sirve para la
-   lista pública, la de revendedor o una combinada. Los precios internos solo se
-   ofrecen si la migración fase12 está aplicada. */
-function cardPrecios() {
-  const opt = (key, label, checked) => `
-    <label class="ad-rep-opt">
-      <input type="checkbox" data-rep-price="${key}"${checked ? " checked" : ""} />
-      <span>${esc(label)}</span>
-    </label>`;
-  return `<div class="ad-rep-card">
-    <span class="ad-rep-card__icon">${ico("file-text")}</span>
-    <h3>Lista de precios</h3>
-    <p>Todos los productos con su precio, oferta y estado. Elige qué precios incluir.</p>
-    <div class="ad-rep-opts" role="group" aria-label="Precios a incluir">
-      ${opt("venta", "Precio de venta", true)}
-      ${state.pricingSupported ? opt("revendedor", "Precio revendedor", false) : ""}
-      ${state.pricingSupported ? opt("javy", "Precio Javy", false) : ""}
-    </div>
-    <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-rep="precios">${ico("file-text")}Generar</button>
-  </div>`;
-}
-
-/* Qué precios pidió el admin. Venta viene marcado por defecto: es el informe
-   que ya existía antes de que hubiera precios internos. */
-function preciosSeleccionados(container) {
-  const on = (key) => !!container.querySelector(`[data-rep-price="${key}"]`)?.checked;
-  return { venta: on("venta"), revendedor: on("revendedor"), javy: on("javy") };
 }
 
 function cardActividad() {
@@ -242,8 +284,7 @@ async function onGenerate(container, key) {
   paint(result, `<div class="ad-panel"><p class="ad-feed__loading">Generando informe…</p></div>`);
   let rep;
   try {
-    if (key === "medida") rep = repMedida(leerFiltros(container));
-    else if (key === "precios") rep = repPrecios(preciosSeleccionados(container));
+    if (key === "medida") rep = repMedida(leerFiltros(container), preciosSeleccionados(container));
     else if (key === "stock") rep = repStock();
     else if (key === "ofertas") rep = repOfertas();
     else if (key === "actividad") rep = await repActividad(Number(container.querySelector("[data-rep-period]")?.value || 30));
@@ -281,64 +322,6 @@ function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.pric
     detail: detail(p),
     image: p.image || "",
   }));
-}
-
-/* `sel` decide qué precios salen. Las columnas de identificación y el estado van
-   siempre; "Antes (oferta)" solo acompaña al precio de venta, porque sin él un
-   precio tachado no dice nada.
-
-   Los precios sin asignar salen como "—", igual que la columna de oferta cuando
-   no hay oferta: en una tabla un hueco en blanco se lee como un fallo de
-   generación, y "$0" sería directamente un dato falso.
-
-   En el PDF (formato catálogo) el precio grande es el primero que se pidió y los
-   demás van en la línea de detalle, para no romper ese diseño. */
-function repPrecios(sel = { venta: true, revendedor: false, javy: false }) {
-  const products = state.products.slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"));
-
-  const columns = ["Producto", "Categoría", "Presentación"];
-  if (sel.venta) columns.push("Precio", "Antes (oferta)");
-  if (sel.revendedor) columns.push("Revendedor");
-  if (sel.javy) columns.push("Javy");
-  columns.push("Estado");
-
-  const rows = products.map((p) => {
-    const row = [p.name || "—", categoryLabel(p), p.presentation || "—"];
-    if (sel.venta) row.push(peso(p.price), hasOffer(p) ? peso(p.old_price) : "—");
-    if (sel.revendedor) row.push(pesoOpt(p.reseller_price));
-    if (sel.javy) row.push(pesoOpt(p.javy_price));
-    row.push(isAvailable(p) ? "Disponible" : "Agotado");
-    return row;
-  });
-
-  // En el PDF el primero que se pidió es el precio destacado; los demás van
-  // rotulados en la línea de detalle, para que nadie confunda uno con otro.
-  const elegidos = [
-    sel.venta && { label: "Venta", value: (p) => peso(p.price) },
-    sel.revendedor && { label: "Revendedor", value: (p) => pesoOpt(p.reseller_price) },
-    sel.javy && { label: "Javy", value: (p) => pesoOpt(p.javy_price) },
-  ].filter(Boolean);
-  const principal = (p) => elegidos[0].value(p);
-  const detalle = (p) => elegidos.slice(1).map((e) => `${e.label} ${e.value(p)}`).join(" · ");
-
-  const partes = [sel.venta && "venta", sel.revendedor && "revendedor", sel.javy && "Javy"].filter(Boolean);
-  const interno = sel.revendedor || sel.javy;
-
-  return {
-    // Con solo el precio de venta conserva el nombre de siempre, así que el
-    // archivo que ya se venía generando no cambia de nombre.
-    title: partes.length === 1 && sel.venta ? "Lista de precios actuales" : `Lista de precios — ${partes.join(", ")}`,
-    columns,
-    rows,
-    // Este PDF se comparte por WhatsApp desde el celular: si lleva precios que
-    // no son públicos, el propio documento tiene que decirlo.
-    metaExtra: interno ? "Uso interno — contiene precios que no se publican en la tienda" : "",
-    pdf: {
-      products: pdfCatalogItems(products, detalle, principal),
-      detailLabel: interno ? "Otros precios" : "",
-    },
-  };
 }
 
 function repStock() {
