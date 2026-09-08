@@ -1,19 +1,37 @@
 /* ============================================================================
    Sección Inicio: curación de los productos destacados del home (orden + cupo).
    ============================================================================ */
-import { state } from "../state.js?v=adm-3ae53034";
-import { HOME_MAX, HOME_MIN } from "../config.js?v=adm-3ae53034";
-import { $, esc, ico, imgTag, peso } from "../helpers.js?v=adm-3ae53034";
-import { setView } from "../view.js?v=adm-3ae53034";
-import { bindEditClicks } from "../shell.js?v=adm-3ae53034";
-import { toast } from "../ui.js?v=adm-3ae53034";
-import { reloadProducts } from "../data.js?v=adm-3ae53034";
+import { state } from "../state.js?v=adm-f1bd090d";
+import { HOME_MAX, HOME_MIN } from "../config.js?v=adm-f1bd090d";
+import { $, esc, ico, imgTag, peso } from "../helpers.js?v=adm-f1bd090d";
+import { setView } from "../view.js?v=adm-f1bd090d";
+import { bindEditClicks } from "../shell.js?v=adm-f1bd090d";
+import { toast } from "../ui.js?v=adm-f1bd090d";
+import { reloadProducts } from "../data.js?v=adm-f1bd090d";
 
 export function renderHome() {
-  let ids = state.products
+  const curados = () => state.products
     .filter((p) => p.show_on_home)
     .sort((a, b) => (a.home_order ?? 999) - (b.home_order ?? 999))
     .map((p) => p.id);
+
+  /* Quitar, mover y agregar editan esta lista en memoria y recién "Guardar
+     inicio" la baja a la base. El modelo está bien, pero antes no se veía por
+     ningún lado: dabas a la ✕, el producto desaparecía de la pantalla, salías
+     de la sección sin guardar y en la web seguía estando. Por eso ahora la
+     lista guardada se conserva aparte y todo cambio pendiente se anuncia. */
+  const guardados = curados();
+  let ids = [...guardados];
+  const sinGuardar = () => ids.join("|") !== guardados.join("|");
+
+  const estadoTexto = () => {
+    if (ids.length < HOME_MIN) {
+      const faltan = HOME_MIN - ids.length;
+      return `El inicio no puede quedar con menos de ${HOME_MIN} productos (te ${faltan === 1 ? "falta 1" : `faltan ${faltan}`}). Para quitar uno, agrega otro en su lugar.`;
+    }
+    if (ids.length > HOME_MAX) return `Máximo ${HOME_MAX} productos.`;
+    return sinGuardar() ? "Cambios sin guardar." : "Todo guardado.";
+  };
 
   const draw = () => {
     const items = ids.map((id) => state.products.find((p) => p.id === id)).filter(Boolean);
@@ -25,9 +43,10 @@ export function renderHome() {
 
     setView(`
       <div class="ad-section-intro">
-        <div><p class="ad-kicker">Home</p><p>Curá los productos destacados que aparecen en la página principal. Ordená con las flechas. Entre ${HOME_MIN} y ${HOME_MAX} productos.</p></div>
+        <div><p class="ad-kicker">Home</p><p>Elige los productos destacados que aparecen en la página principal. Ordénalos con las flechas. Entre ${HOME_MIN} y ${HOME_MAX} productos.</p></div>
         <span class="ad-counter${full ? " ad-counter--full" : ""}"><strong>${ids.length}</strong> / ${HOME_MAX} en el inicio</span>
       </div>
+      ${sinGuardar() ? `<div class="ad-panel ad-home-dirty"><p><strong>Tienes cambios sin guardar.</strong> Lo que ves acá todavía no está en la página principal: pulsa <em>Guardar inicio</em> para aplicarlo.</p></div>` : ""}
       <div class="ad-panel">
         <div class="ad-slots">
           ${items.map((p, i) => `
@@ -43,16 +62,17 @@ export function renderHome() {
               </div>
             </div>`).join("")}
           ${Array.from({ length: emptySlots }).map((_, i) => `
-            <div class="ad-slot ad-slot--empty"><span class="ad-slot__order">${ids.length + i + 1}</span><span>Espacio libre — agregá un producto destacado</span></div>`).join("")}
+            <div class="ad-slot ad-slot--empty"><span class="ad-slot__order">${ids.length + i + 1}</span><span>Espacio libre — agrega un producto destacado</span></div>`).join("")}
         </div>
         <div class="ad-field ad-home-add" data-write-only>
           <label class="ad-field__label">Agregar producto al inicio</label>
           <select class="ad-select" data-pool aria-label="Agregar producto al inicio" ${full ? "disabled" : ""}><option value="">Elegir…</option>${poolOptions}</select>
-          ${full ? `<span class="ad-field__help">Cupo lleno (${HOME_MAX}). Quitá uno para agregar otro.</span>` : ""}
+          ${full ? `<span class="ad-field__help">Cupo lleno (${HOME_MAX}). Quita uno para agregar otro.</span>` : ""}
         </div>
         <div class="ad-save-row" data-write-only>
           <button class="ad-btn ad-btn--primary" type="button" data-save-home>${ico("save")}Guardar inicio</button>
-          <span class="ad-field__help">${ids.length < HOME_MIN ? `Necesitás al menos ${HOME_MIN} productos para guardar.` : "Listo para guardar."}</span>
+          ${sinGuardar() ? `<button class="ad-btn ad-btn--ghost" type="button" data-reset-home>Deshacer</button>` : ""}
+          <span class="ad-field__help">${estadoTexto()}</span>
         </div>
       </div>`);
 
@@ -73,6 +93,10 @@ export function renderHome() {
       if (pool.value && ids.length < HOME_MAX) { ids.push(pool.value); draw(); }
     });
     view.querySelector("[data-save-home]").addEventListener("click", () => saveHome(ids));
+    view.querySelector("[data-reset-home]")?.addEventListener("click", () => {
+      ids = [...guardados];
+      draw();
+    });
     bindEditClicks(view);
   };
 
@@ -80,7 +104,10 @@ export function renderHome() {
 }
 
 async function saveHome(ids) {
-  if (ids.length < HOME_MIN) { toast({ tone: "err", msg: `Elegí al menos ${HOME_MIN} productos.` }); return; }
+  if (ids.length < HOME_MIN) {
+    toast({ tone: "err", msg: `El inicio necesita ${HOME_MIN} productos`, sub: "Agrega otro en lugar del que quitaste y vuelve a guardar." });
+    return;
+  }
   if (ids.length > HOME_MAX) { toast({ tone: "err", msg: `Máximo ${HOME_MAX} productos.` }); return; }
   try {
     await window.catalogDb.updateHomeProducts(ids);

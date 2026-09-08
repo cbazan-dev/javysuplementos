@@ -10,10 +10,9 @@
   margin-top: var(--section-gap);
 }
 
-/* `display: flex` le gana al [hidden] del navegador, así que sin esta regla la
-   sección de Combos seguía ocupando lugar cuando no hay ninguno activo:
-   js/script.js le ponía el atributo, pero igual se veían el título, la bajada
-   y un hueco enorme donde iban las cards. */
+/* `display: flex` le gana al [hidden] del navegador, así que sin esta regla una
+   sección oculta por JS seguía ocupando lugar: se le ponía el atributo, pero
+   igual se veían el título, la bajada y un hueco donde iban las cards. */
 .top-products[hidden] {
   display: none;
 }
@@ -319,97 +318,6 @@
   }
 }
 
-/* ===== Cards de combo (home) ===== */
-.combo-card {
-  padding: 22px 20px;
-  gap: 16px;
-}
-
-.combo-card__badge {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: var(--radius-pill);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--brand-tint-text);
-  background: var(--brand-tint);
-  border: 1px solid rgba(90, 180, 233, 0.35);
-}
-
-.combo-card__desc {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-.combo-card__items {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.combo-card__item {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--text) 2.5%, transparent);
-  border: 1px solid var(--line);
-}
-
-.combo-card__item-media {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, var(--text) 3%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text) 6%, transparent);
-}
-
-.combo-card__item-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, calc(0.5 * var(--shadow-a))));
-}
-
-:root[data-theme="light"] .combo-card__item-media img {
-  filter: none;
-}
-
-.combo-card__item-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.combo-card__item-name {
-  color: var(--text);
-  font-weight: 600;
-  font-size: 0.82rem;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 2.15em;
-}
-
 .product-card__pres {
   flex-shrink: 0;
   padding: 4px 10px;
@@ -684,37 +592,6 @@
     gap: 8px;
     width: calc(100% - 12px);
     justify-content: center;
-  }
-
-  /* Las cards de combo llevan una mini-card por producto adentro: a 180px
-     (el ancho de una card de producto suelto) no entran. Un ID pisa la regla
-     de arriba sin tocar el resto de #top-products__list. */
-  #home-combos__list {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
-  }
-
-  .combo-card {
-    padding: 14px;
-    gap: 12px;
-  }
-
-  .combo-card__items {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .combo-card__item {
-    flex-direction: row;
-    align-items: flex-start;
-    padding: 8px;
-  }
-
-  .combo-card__item-media {
-    width: 60px;
-    height: 60px;
-    aspect-ratio: auto;
-    flex-shrink: 0;
   }
 
   .product-card {

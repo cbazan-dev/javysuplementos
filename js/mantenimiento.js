@@ -14,7 +14,7 @@
    está siempre abierto, así se puede trabajar sin que estorbe. Por eso no
    hace falta que la rama de desarrollo y main tengan valores distintos.
 
-   ▸ Para probar un modo donde sea (incluido producción), agregá a la URL:
+   ▸ Para probar un modo donde sea (incluido producción), agrega a la URL:
        ?modo=cerrado   ?modo=abierto
      Queda guardado mientras dure la pestaña. `?ver=javy` sigue funcionando
      como atajo de "abierto".

@@ -1,14 +1,14 @@
 /* ============================================================================
    Sección Categorías: familias y tipos (jerarquía), editar, ocultar y borrar.
    ============================================================================ */
-import { state, families, typesOf, catById } from "../state.js?v=adm-3ae53034";
-import { $, esc, ico } from "../helpers.js?v=adm-3ae53034";
-import { setView } from "../view.js?v=adm-3ae53034";
-import { emptyFeature, promptModal, confirmModal, toast, ensureMenuListeners } from "../ui.js?v=adm-3ae53034";
+import { state, families, typesOf, catById } from "../state.js?v=adm-f1bd090d";
+import { $, esc, ico } from "../helpers.js?v=adm-f1bd090d";
+import { setView } from "../view.js?v=adm-f1bd090d";
+import { emptyFeature, promptModal, confirmModal, toast, ensureMenuListeners } from "../ui.js?v=adm-f1bd090d";
 
 export function renderCategories() {
   if (!state.categoriesSupported) {
-    setView(emptyFeature("Categorías no disponibles", "Aplicá la migración de categorías (Familia → Tipo) en Supabase para gestionarlas aquí."));
+    setView(emptyFeature("Categorías no disponibles", "Aplica la migración de categorías (Familia → Tipo) en Supabase para gestionarlas aquí."));
     return;
   }
   const fams = families();
@@ -67,7 +67,7 @@ export function renderCategories() {
       <div><p class="ad-kicker">Catálogo</p><p>Catálogo de categorías y subcategorías.</p></div>
       <button class="ad-btn ad-btn--primary" type="button" data-fam-add data-write-only>${ico("plus")}Nueva categoría</button>
     </div>
-    <div class="ad-panel">${cards || `<p class="ad-ops__empty">Todavía no hay categorías. Creá la primera.</p>`}</div>`);
+    <div class="ad-panel">${cards || `<p class="ad-ops__empty">Todavía no hay categorías. Crea la primera.</p>`}</div>`);
 
   const view = $("#adminView");
   view.querySelector("[data-fam-add]").addEventListener("click", addFamily);

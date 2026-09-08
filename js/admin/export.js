@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-3ae53034";
+import { esc } from "./helpers.js?v=adm-f1bd090d";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -18,18 +18,29 @@ const isRealImage = (url = "") => Boolean(url) && !String(url).includes("product
 const absoluteUrl = (url) => new URL(url, document.baseURI).href;
 
 function catalogGroups(items = []) {
-  const groups = new Map();
+  // Dos niveles: familia (Proteínas, Creatina) y dentro de ella la subcategoría
+  // del producto (Whey, ISO, saborizada…). Los productos cargados directo en la
+  // familia van primero, sin subtítulo: no hay subcategoría que anunciar.
+  const familias = new Map();
   items.filter(Boolean).slice().sort((a, b) => {
     const byCategory = String(a.category || "Sin categoría").localeCompare(String(b.category || "Sin categoría"), "es");
     if (byCategory) return byCategory;
+    const bySub = String(a.subcategory || "").localeCompare(String(b.subcategory || ""), "es");
+    if (bySub) return bySub;
     const byBrand = String(a.brand || "").localeCompare(String(b.brand || ""), "es");
     return byBrand || String(a.name || "").localeCompare(String(b.name || ""), "es");
   }).forEach((item) => {
     const category = item.category || "Sin categoría";
-    if (!groups.has(category)) groups.set(category, []);
-    groups.get(category).push(item);
+    const subcategory = item.subcategory || "";
+    if (!familias.has(category)) familias.set(category, new Map());
+    const subs = familias.get(category);
+    if (!subs.has(subcategory)) subs.set(subcategory, []);
+    subs.get(subcategory).push(item);
   });
-  return [...groups.entries()].map(([category, products]) => ({ category, products }));
+  return [...familias.entries()].map(([category, subs]) => ({
+    category,
+    groups: [...subs.entries()].map(([subcategory, products]) => ({ subcategory, products })),
+  }));
 }
 
 function loadImage(url) {
@@ -104,7 +115,7 @@ function mainHeader(doc, title, meta, logo) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(...PDF.white);
   doc.text("JAVY SUPLEMENTOS", MARGIN + 62, 37);
   doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...PDF.sky);
-  doc.text("INFORME DEL PANEL", MARGIN + 62, 51);
+  doc.text("Visita javysuplementos.com para ver los productos", MARGIN + 62, 51);
   doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(...PDF.ink);
   doc.text(String(title || "Informe"), MARGIN, 114);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(...PDF.muted);
@@ -131,6 +142,15 @@ function categoryHeading(doc, category, y) {
   doc.text(String(category), MARGIN + 10, y + 14);
 }
 
+// Subtítulo de subcategoría: más discreto que la barra azul de la familia, para
+// que se lea como un escalón dentro de ella y no como otra categoría.
+function subcategoryHeading(doc, subcategory, y) {
+  const { width } = size(doc);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...PDF.muted);
+  doc.text(String(subcategory).toUpperCase(), MARGIN + 2, y + 10);
+  doc.setDrawColor(...PDF.line); doc.line(MARGIN + 2, y + 14, width - MARGIN, y + 14);
+}
+
 function addFooters(doc) {
   const { width } = size(doc);
   const total = doc.getNumberOfPages();
@@ -138,7 +158,7 @@ function addFooters(doc) {
     doc.setPage(page);
     doc.setDrawColor(...PDF.line); doc.line(MARGIN, FOOTER_Y - 12, width - MARGIN, FOOTER_Y - 12);
     doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(...PDF.muted);
-    doc.text("Javy Suplementos · Informe generado desde el panel administrativo", MARGIN, FOOTER_Y);
+    doc.text("Javy Suplementos", MARGIN, FOOTER_Y);
     doc.text(`Página ${page} de ${total}`, width - MARGIN, FOOTER_Y, { align: "right" });
   }
 }
@@ -149,7 +169,7 @@ function baseTable(head, body, startY, topMargin = 96) {
     margin: { top: topMargin, left: MARGIN, right: MARGIN, bottom: 48 },
     showHead: "everyPage", pageBreak: "auto", rowPageBreak: "avoid",
     styles: { font: "helvetica", fontSize: 8.5, textColor: PDF.ink, fillColor: PDF.white, lineColor: PDF.line, lineWidth: 0.4, cellPadding: { top: 6, right: 7, bottom: 6, left: 7 }, overflow: "linebreak", valign: "middle" },
-    headStyles: { fillColor: PDF.ink, textColor: PDF.white, fontStyle: "bold", fontSize: 7.5, cellPadding: { top: 7, right: 7, bottom: 7, left: 7 } },
+    headStyles: { fillColor: PDF.ink, textColor: PDF.white, fontStyle: "bold", fontSize: 7.5, cellPadding: { top: 3, right: 7, bottom: 3, left: 7 } },
     alternateRowStyles: { fillColor: PDF.stripe },
   };
 }
@@ -161,12 +181,30 @@ export function buildTable(columns, rows, className = "") {
   return `<table${className ? ` class="${className}"` : ""}>${head}${body}</table>`;
 }
 
+// Segunda línea del producto en los informes de catálogo (PDF e impresión):
+// marca y presentación, lo que haya de cada una.
+function subtitulo(item) {
+  return [item.brand, item.presentation].filter(Boolean).join(" · ");
+}
+
+// Líneas bajo el nombre del producto: marca · presentación y, si el informe los
+// pidió, los sabores disponibles.
+function lineasProducto(item) {
+  return [subtitulo(item), item.flavors].filter(Boolean);
+}
+
 // Arma el PDF del informe y lo devuelve como Blob. Los informes de catálogo
 // pueden pasar products sin cambiar la tabla que se ve en la web.
+// `options.orientation`: "landscape" para informes anchos (la lista de precios
+// con dos o más precios, que en vertical queda apretada). El resto del diseño
+// se adapta solo porque mide con pageSize.getWidth().
 export async function buildReportPDF(title, meta, columns, rows, options = {}) {
   const ns = window.jspdf;
   if (!ns || !ns.jsPDF) throw new Error("No se pudo cargar el generador de PDF. Recarga la página e intenta de nuevo.");
-  const doc = new ns.jsPDF({ unit: "pt", format: "a4" });
+  const doc = new ns.jsPDF({
+    unit: "pt", format: "a4",
+    orientation: options.orientation === "landscape" ? "landscape" : "portrait",
+  });
   const products = options.products || [];
   const logo = await imageData(LOGO_URL, 160);
   if (!logo) throw new Error("No se pudo cargar el logo de Javy para el informe.");
@@ -186,48 +224,74 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
   const assets = await preloadImages(products);
   const { height } = size(doc);
   const detailLabel = options.detailLabel || "";
-  catalogGroups(products).forEach(({ category, products: group }) => {
-    // El título de categoría siempre viaja con la cabecera y primera fila.
+  const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
+  const tableWidth = size(doc).width - MARGIN * 2;
+
+  catalogGroups(products).forEach(({ category, groups }) => {
+    // El título de familia siempre viaja con la cabecera y primera fila.
     if (cursorY + 90 > height - 48) {
       doc.addPage();
       continuationHeader(doc, title);
       cursorY = 72;
     }
     categoryHeading(doc, category, cursorY);
-    const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
-    const tableWidth = size(doc).width - MARGIN * 2;
-    const body = group.map((item) => {
-      const product = item.brand ? `${item.name || "—"}\n${item.brand}` : (item.name || "—");
-      return detailLabel ? [item.image || "", product, item.price || "Consultar", item.detail || "—"] : [item.image || "", product, item.price || "Consultar"];
-    });
-    doc.autoTable({
-      ...baseTable(head, body, cursorY + 30, 116),
-      tableWidth,
-      styles: { ...baseTable(head, body, 0).styles, minCellHeight: 46 },
-      columnStyles: detailLabel
-        ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "right", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
-        : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "right", fontStyle: "bold" } },
-      willDrawPage: (data) => {
-        if (data.pageNumber > 1) {
+    cursorY += 30;
+
+    groups.forEach(({ subcategory, products: group }) => {
+      // En la continuación de página va un solo rótulo con los dos niveles:
+      // así la geometría (y el margen superior de la tabla) no cambia.
+      const rotulo = subcategory ? `${category} · ${subcategory}` : category;
+      if (subcategory) {
+        // Un subtítulo suelto al pie de la página no ayuda a nadie: si no entra
+        // con su cabecera y una fila, arranca en la siguiente.
+        if (cursorY + 90 > height - 48) {
+          doc.addPage();
           continuationHeader(doc, title);
-          categoryHeading(doc, category, 72);
+          categoryHeading(doc, rotulo, 72);
+          cursorY = 102;
+        } else {
+          subcategoryHeading(doc, subcategory, cursorY);
+          cursorY += 20;
         }
-      },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 0) data.cell.text = [];
-      },
-      didDrawCell: (data) => {
-        if (data.section !== "body" || data.column.index !== 0) return;
-        const asset = assets.get(data.cell.raw);
-        if (!asset) return;
-        const max = 31;
-        const ratio = asset.width / asset.height || 1;
-        const imageWidth = ratio >= 1 ? max : max * ratio;
-        const imageHeight = ratio >= 1 ? max / ratio : max;
-        doc.addImage(asset.data, "JPEG", data.cell.x + (data.cell.width - imageWidth) / 2, data.cell.y + (data.cell.height - imageHeight) / 2, imageWidth, imageHeight);
-      },
+      }
+      const body = group.map((item) => {
+        const product = [item.name || "—", ...lineasProducto(item)].join("\n");
+        return detailLabel ? [item.image || "", product, item.price || "Consultar", item.detail || "—"] : [item.image || "", product, item.price || "Consultar"];
+      });
+      doc.autoTable({
+        ...baseTable(head, body, cursorY, 116),
+        tableWidth,
+        styles: { ...baseTable(head, body, 0).styles, minCellHeight: 46 },
+        // minCellHeight es para las filas con foto; la cabecera se queda ceñida al texto.
+        headStyles: { ...baseTable(head, body, 0).headStyles, minCellHeight: 0 },
+        columnStyles: detailLabel
+          ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "center", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
+          : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "center", fontStyle: "bold" } },
+        willDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            continuationHeader(doc, title);
+            categoryHeading(doc, rotulo, 72);
+          }
+        },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 0) data.cell.text = [];
+          // columnStyles no llega a la cabecera: centramos "Precio actual" sobre el monto.
+          if (data.section === "head" && data.column.index === 2) data.cell.styles.halign = "center";
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const asset = assets.get(data.cell.raw);
+          if (!asset) return;
+          const max = 31;
+          const ratio = asset.width / asset.height || 1;
+          const imageWidth = ratio >= 1 ? max : max * ratio;
+          const imageHeight = ratio >= 1 ? max / ratio : max;
+          doc.addImage(asset.data, "JPEG", data.cell.x + (data.cell.width - imageWidth) / 2, data.cell.y + (data.cell.height - imageHeight) / 2, imageWidth, imageHeight);
+        },
+      });
+      cursorY = doc.lastAutoTable.finalY + 14;
     });
-    cursorY = doc.lastAutoTable.finalY + 18;
+    cursorY += 6;
   });
 
   addFooters(doc);
@@ -286,15 +350,19 @@ export async function saveOrShare(filename, blob, share = {}) {
 }
 
 function printCatalog(items, detailLabel = "") {
-  return catalogGroups(items).map(({ category, products }) => `
+  const filas = (products) => products.map((item) => `<tr>
+        <td class="image-col">${isRealImage(item.image) ? `<img src="${esc(absoluteUrl(item.image))}" alt="" />` : ""}</td>
+        <td><strong>${esc(item.name || "—")}</strong>${lineasProducto(item).map((l) => `<small>${esc(l)}</small>`).join("")}</td>
+        <td class="price-col">${esc(item.price || "Consultar")}</td>${detailLabel ? `<td>${esc(item.detail || "—")}</td>` : ""}
+      </tr>`).join("");
+
+  return catalogGroups(items).map(({ category, groups }) => `
     <section class="catalog-group">
       <h2>${esc(category)}</h2>
+      ${groups.map(({ subcategory, products }) => `
+      ${subcategory ? `<h3>${esc(subcategory)}</h3>` : ""}
       <table><thead><tr><th class="image-col"></th><th>Producto</th><th class="price-col">Precio actual</th>${detailLabel ? `<th>${esc(detailLabel)}</th>` : ""}</tr></thead>
-      <tbody>${products.map((item) => `<tr>
-        <td class="image-col">${isRealImage(item.image) ? `<img src="${esc(absoluteUrl(item.image))}" alt="" />` : ""}</td>
-        <td><strong>${esc(item.name || "—")}</strong>${item.brand ? `<small>${esc(item.brand)}</small>` : ""}</td>
-        <td class="price-col">${esc(item.price || "Consultar")}</td>${detailLabel ? `<td>${esc(item.detail || "—")}</td>` : ""}
-      </tr>`).join("")}</tbody></table>
+      <tbody>${filas(products)}</tbody></table>`).join("")}
     </section>`).join("");
 }
 
@@ -304,16 +372,17 @@ export function printReport(title, meta, columns, rows, options = {}) {
   const w = window.open("", "_blank");
   if (!w) return false;
   const products = options.products || [];
+  const landscape = options.orientation === "landscape";
   const content = products.length ? printCatalog(products, options.detailLabel) : buildTable(columns, rows);
   const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title>
   <style>
-    @page{size:A4;margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
-    .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.08em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
-    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:right;font-weight:700;white-space:nowrap;}
+    @page{size:A4 ${landscape ? "landscape" : "portrait"};margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
+    .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.04em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
+    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}.catalog-group h3{font-size:8.5pt;color:#5b6c7d;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #dce3ea;padding:0 2px 4px;margin:10px 0 6px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;padding-top:3px;padding-bottom:3px;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:center;font-weight:700;white-space:nowrap;}
     .report-footer{position:fixed;bottom:-11mm;left:0;right:0;border-top:1px solid #dce3ea;padding-top:4px;color:#5b6c7d;font-size:8pt;display:flex;justify-content:space-between;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
-    <header class="report-header"><img src="${LOGO_URL}" alt="Javy Suplementos" /><div><p class="brand">JAVY SUPLEMENTOS · INFORME DEL PANEL</p><h1>${esc(title)}</h1><p class="meta">${esc(meta)}</p></div></header>
-    ${content}<footer class="report-footer"><span>Javy Suplementos · Informe generado desde el panel administrativo</span><span>${esc(meta)}</span></footer>
+    <header class="report-header"><img src="${LOGO_URL}" alt="Javy Suplementos" /><div><p class="brand">JAVY SUPLEMENTOS · Visita javysuplementos.com para ver los productos</p><h1>${esc(title)}</h1><p class="meta">${esc(meta)}</p></div></header>
+    ${content}<footer class="report-footer"><span>Javy Suplementos</span><span>${esc(meta)}</span></footer>
     <script>window.onload=function(){setTimeout(function(){window.print();},250);};<\/script>
   </body></html>`;
   w.document.open();

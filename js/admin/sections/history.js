@@ -3,10 +3,10 @@
    panel (quién creó/editó/eliminó qué) con filtros y paginación "Ver más".
    Lee de window.catalogDb.getActivityLog(). Degrada elegante si no hay tabla.
    ============================================================================ */
-import { state } from "../state.js?v=adm-3ae53034";
-import { esc, ico } from "../helpers.js?v=adm-3ae53034";
-import { paint } from "../view.js?v=adm-3ae53034";
-import { emptyFeature } from "../ui.js?v=adm-3ae53034";
+import { state } from "../state.js?v=adm-f1bd090d";
+import { esc, ico } from "../helpers.js?v=adm-f1bd090d";
+import { paint } from "../view.js?v=adm-f1bd090d";
+import { emptyFeature } from "../ui.js?v=adm-f1bd090d";
 
 const PAGE = 30;
 
@@ -38,7 +38,7 @@ export function renderHistoryTab(container) {
 
 function shell() {
   const f = ctx.filters;
-  const ent = opts([["", "Todo tipo"], ["product", "Productos"], ["flavor", "Sabores"], ["combo", "Combos"], ["category", "Categorías"], ["admin", "Accesos"]], f.entityType);
+  const ent = opts([["", "Todo tipo"], ["product", "Productos"], ["flavor", "Sabores"], ["category", "Categorías"], ["admin", "Accesos"]], f.entityType);
   const act = opts([["", "Toda acción"], ["create", "Creaciones"], ["update", "Ediciones"], ["price", "Cambios de precio"], ["availability", "Disponibilidad"], ["delete", "Eliminaciones"]], f.action);
   const actorPairs = [["", "Todos"]].concat((state.admins || []).filter((a) => a.email).map((a) => [a.email, a.email.split("@")[0]]));
   const actor = opts(actorPairs, f.actor);
@@ -85,7 +85,7 @@ async function loadMore() {
       hasFilters ? "Sin resultados" : "Sin actividad todavía",
       hasFilters
         ? "No hay cambios que coincidan con los filtros elegidos."
-        : "Cuando crees, edites o elimines productos, combos o categorías, los cambios aparecerán aquí. Si recién instalaste esta función, aplica la migración fase6-actividad.sql en Supabase."
+        : "Cuando crees, edites o elimines productos o categorías, los cambios aparecerán aquí. Si recién instalaste esta función, aplica la migración fase6-actividad.sql en Supabase."
     ));
     more.innerHTML = "";
     return;

@@ -1,6 +1,14 @@
 const CONSULTATION_KEY = "javy-consultation";
 const LEGACY_CART_KEY = "cart";
 
+/* Domicilio: cargo fijo que se suma a la cotizacion y cantidad de productos a
+   partir de la cual el envio va sin costo. Se cuenta por UNIDADES (llevar 2 de
+   un mismo producto cuenta 2), que es como lo lee el cliente. Los dos numeros
+   viven aca y en ningun otro lado: cambiar el umbral o el precio es tocar una
+   linea, y el panel, el total y el mensaje de WhatsApp se acomodan solos. */
+const DELIVERY_FEE = 4;
+const FREE_DELIVERY_MIN_UNITS = 5;
+
 // Imagen por defecto de un ítem de la cotización. Absoluta a propósito: ver
 // quoteImageSrc().
 const QUOTE_FALLBACK_IMAGE = "/img/icons/logo.png";
@@ -285,10 +293,12 @@ function renderConsultationPanel() {
   const totalEl = document.getElementById("consultationTotal");
   const totalValueEl = document.getElementById("consultationTotalValue");
   if (totalEl && totalValueEl) {
-    const { total } = computeQuoteTotals(items);
-    totalValueEl.textContent = formatMoney(total);
-    totalEl.hidden = items.length === 0 || total <= 0;
+    const { subtotal } = computeQuoteTotals(items);
+    totalValueEl.textContent = formatMoney(subtotal);
+    totalEl.hidden = items.length === 0 || subtotal <= 0;
   }
+
+  renderQuoteSummary(items);
 
   items.forEach((item, index) => {
     const unit = Number(item.price);
@@ -337,6 +347,52 @@ function renderConsultationPanel() {
   });
 
   window.javyIcons?.enhance?.(list);
+}
+
+/* Resumen de la columna de envio: productos + domicilio + total, con la nota
+   que corresponda. Es la unica parte del panel que reacciona al metodo de
+   entrega, por eso se repinta tanto al cambiar la lista como al cambiar el
+   selector. */
+function renderQuoteSummary(itemsArg) {
+  const box = document.getElementById("consultationSummary");
+  if (!box) return;
+
+  const items = itemsArg || getConsultation();
+  const totals = computeQuoteTotals(items);
+  const { subtotal, total, deliveryFee, needsDelivery, freeDelivery, unitsToFree, hasUnpriced } = totals;
+
+  box.hidden = items.length === 0 || (subtotal <= 0 && !needsDelivery);
+  if (box.hidden) return;
+
+  /* formatMoney() devuelve "Consultar" cuando el monto es 0, que sirve para la
+     card de un producto pero no para una fila de totales: ahi el cliente espera
+     una cifra. Con todo sin precio se dice "Por confirmar" y listo. */
+  const money = (value) => (value > 0 ? formatMoney(value) : "Por confirmar");
+  document.getElementById("consultationSummarySubtotal").textContent = money(subtotal);
+  document.getElementById("consultationSummaryTotal").textContent = money(total);
+
+  const row = document.getElementById("consultationDeliveryRow");
+  const value = document.getElementById("consultationDeliveryValue");
+  row.hidden = !needsDelivery;
+  row.classList.toggle("is-free", freeDelivery);
+  if (needsDelivery) {
+    value.textContent = freeDelivery ? "GRATIS" : formatMoney(deliveryFee);
+  }
+
+  const avisos = [];
+  if (needsDelivery && freeDelivery) {
+    avisos.push(`Delivery gratis por llevar ${FREE_DELIVERY_MIN_UNITS} productos o más. El punto de entrega lo confirmamos por WhatsApp.`);
+  } else if (needsDelivery) {
+    avisos.push(unitsToFree === 1
+      ? "Agrega 1 producto más y el delivery te sale gratis."
+      : `Agrega ${unitsToFree} productos más y el delivery te sale gratis.`);
+    avisos.push("El costo puede variar según qué tan lejos quede la dirección: te lo confirmamos por WhatsApp antes de despachar.");
+  }
+  if (hasUnpriced) avisos.push("Hay productos con precio por confirmar.");
+
+  const note = document.getElementById("consultationDeliveryNote");
+  note.hidden = avisos.length === 0;
+  note.textContent = avisos.join(" ");
 }
 
 function addItem(productOrId, options = {}) {
@@ -498,13 +554,33 @@ function showQuoteHint(text) {
   hint.hidden = !text;
 }
 
-function computeQuoteTotals(items) {
+// Unidades totales de la cotizacion: es lo que decide el envio gratis.
+function getQuoteUnits(items) {
+  return items.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0);
+}
+
+/* Totales de la cotizacion. El domicilio NO es un item mas de la lista: se
+   calcula al vuelo desde el metodo de entrega elegido, asi cambiar de
+   "Domicilio" a "Retiro en Tienda" lo saca del total sin tener que tocar la
+   lista de productos guardada en localStorage. */
+function computeQuoteTotals(items, method = getQuoteMethod()) {
   const lineTotals = items
     .filter((item) => Number(item.price) > 0)
     .map((item) => Number(item.price) * Number(item.quantity || 1));
-  const total = lineTotals.reduce((sum, value) => sum + value, 0);
+  const subtotal = lineTotals.reduce((sum, value) => sum + value, 0);
   const hasUnpriced = items.some((item) => !(Number(item.price) > 0));
-  return { lineTotals, total, hasUnpriced };
+
+  const units = getQuoteUnits(items);
+  const needsDelivery = method === "domicilio" && items.length > 0;
+  const freeDelivery = needsDelivery && units >= FREE_DELIVERY_MIN_UNITS;
+  const deliveryFee = needsDelivery && !freeDelivery ? DELIVERY_FEE : 0;
+  const unitsToFree = Math.max(0, FREE_DELIVERY_MIN_UNITS - units);
+
+  return {
+    lineTotals, subtotal, hasUnpriced, units,
+    needsDelivery, freeDelivery, deliveryFee, unitsToFree,
+    total: subtotal + deliveryFee,
+  };
 }
 
 function buildProductLine(item) {
@@ -544,7 +620,8 @@ function buildConsultationMessage() {
     ? items.map(buildProductLine)
     : ["- Quiero cotizar suplementos disponibles."];
 
-  const { lineTotals, total, hasUnpriced } = computeQuoteTotals(items);
+  const totals = computeQuoteTotals(items, method);
+  const { lineTotals, subtotal, total, deliveryFee, needsDelivery, freeDelivery, hasUnpriced } = totals;
 
   const lines = [config.title, ""];
   if (dataLines.length) lines.push(...dataLines, "");
@@ -552,8 +629,25 @@ function buildConsultationMessage() {
 
   if (lineTotals.length) {
     const sumExpr = lineTotals.map((value) => value.toFixed(2)).join(" + ");
-    lines.push(`${sumExpr} = ${total.toFixed(2)}`, "");
+    lines.push(`${sumExpr} = ${subtotal.toFixed(2)}`, "");
+  }
+
+  // El domicilio se declara aunque los productos no tengan precio: si no, el
+  // cliente ve un total en el panel y un mensaje que no lo menciona.
+  if (needsDelivery) {
+    lines.push(freeDelivery
+      ? `Domicilio: GRATIS (${FREE_DELIVERY_MIN_UNITS} productos o mas)`
+      : `Domicilio: ${deliveryFee.toFixed(2)}`);
+  }
+
+  // Sin ningun producto con precio, un "Total a pagar: $4.00" solo dice el costo
+  // del envio y se lee como si el pedido entero costara eso. Mejor no ponerlo.
+  if (lineTotals.length) {
     lines.push(`Total a pagar: ${formatMoney(total)}`);
+  }
+
+  if (needsDelivery && !freeDelivery) {
+    lines.push("* El costo del domicilio puede variar segun la distancia; me lo confirman antes de despachar.");
   }
   if (hasUnpriced) lines.push("* Productos con precio por confirmar.");
 
@@ -760,7 +854,7 @@ function openAddModal(productOrId) {
           flavorSelect.classList.remove("needs-selection");
           visibleTrigger.removeAttribute("aria-invalid");
         }, 1200);
-        showToast("Elegí un sabor");
+        showToast("Elige un sabor");
         visibleTrigger.focus?.();
         return;
       }
@@ -801,7 +895,6 @@ function createConsultationPanel() {
   panel.innerHTML = `
     <div class="consultation-panel__header">
       <div>
-        <p class="consultation-panel__eyebrow">WhatsApp con Javy</p>
         <h2>Mi cotizacion</h2>
       </div>
       <button class="consultation-panel__close" type="button" aria-label="Cerrar cotizacion">
@@ -812,10 +905,10 @@ function createConsultationPanel() {
     <div class="consultation-panel__body">
       <section class="consultation-panel__products" aria-label="Productos de la cotizacion">
         <h3 class="consultation-section__title">Productos</h3>
-        <p class="consultation-empty" id="consultationEmpty">Aun no agregaste productos a la cotizacion.</p>
+        <p class="consultation-empty" id="consultationEmpty">Arma tu pedido aquí y te lo cotizamos al instante por WhatsApp. Sin compromiso.</p>
         <ul class="consultation-list" id="consultationList"></ul>
         <div class="consultation-total" id="consultationTotal" hidden>
-          <span>Total estimado</span>
+          <span>Subtotal</span>
           <strong id="consultationTotalValue">$0.00</strong>
         </div>
       </section>
@@ -834,6 +927,22 @@ function createConsultationPanel() {
 
           <div id="quoteFields"></div>
 
+          <div class="consultation-summary" id="consultationSummary" hidden>
+            <div class="consultation-summary__row">
+              <span>Productos</span>
+              <span id="consultationSummarySubtotal">$0.00</span>
+            </div>
+            <div class="consultation-summary__row" id="consultationDeliveryRow" hidden>
+              <span>Domicilio</span>
+              <span id="consultationDeliveryValue">$0.00</span>
+            </div>
+            <div class="consultation-summary__row consultation-summary__row--total">
+              <span>Total estimado</span>
+              <strong id="consultationSummaryTotal">$0.00</strong>
+            </div>
+            <p class="consultation-summary__note" id="consultationDeliveryNote" hidden></p>
+          </div>
+
           <p class="consultation-form__hint" id="quoteHint" hidden></p>
         </div>
       </section>
@@ -849,6 +958,8 @@ function createConsultationPanel() {
         </div>
       </div>
     </div>
+
+    <p class="consultation-panel__reassure">No pagas nada aquí. Envías tu lista y cerramos el pedido por el chat.</p>
 
     <div class="consultation-panel__footer">
       <button class="consultation-nav__back" id="consultationBack" type="button">‹ Volver</button>
@@ -883,6 +994,7 @@ function createConsultationPanel() {
   panel.querySelector("#consultationBack")?.addEventListener("click", () => goToStep("products"));
   panel.querySelector("#quoteMethod")?.addEventListener("change", (event) => {
     renderQuoteFields(event.target.value);
+    renderQuoteSummary();
     showQuoteHint("");
   });
 

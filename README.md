@@ -18,7 +18,10 @@ manual, por chat.
   (DNS, cabeceras de seguridad, rate-limit y Turnstile en [`docs/seguridad-cloudflare.md`](docs/seguridad-cloudflare.md)).
 - **Previews:** Vercel despliega automáticamente las ramas de desarrollo (puede tener password
   protection → da 401 al acceder desde afuera).
-- **Sin** linter, formatter, tests ni CI/CD.
+- **Sin** linter, formatter ni tests. La única automatización es
+  `.github/workflows/regenerar-catalogo.yml`, que cada noche regenera el HTML estático del
+  catálogo desde Supabase y abre un PR a `main` (nunca commitea directo, y aborta si alguna
+  página fuese a desaparecer: esas bajas necesitan un 301 manual en Cloudflare).
 
 ---
 
@@ -50,8 +53,8 @@ manual, por chat.
 | `/revisar-cambios` | Lanza en paralelo la revisión de diseño + lógica de tus cambios. |
 
 Además, `node scripts/generate-pages.mjs` regenera las páginas estáticas del catálogo
-(`producto/`, `categoria/`, `js/product-urls.js` y `sitemap.xml`) desde Supabase. **Corrélo
-cada vez que cambien productos o categorías** y revisá el `git diff` antes de commitear.
+(`producto/`, `categoria/`, `js/product-urls.js` y `sitemap.xml`) desde Supabase. **Córrelo
+cada vez que cambien productos o categorías** y revisa el `git diff` antes de commitear.
 
 > ### ⚠️ Toda carpeta borrada es una URL que queda en 404
 >
@@ -60,20 +63,38 @@ cada vez que cambien productos o categorías** y revisá el `git diff` antes de 
 > su dirección web ya estaba en `sitemap.xml` e indexada en Google, y pasa a devolver 404.
 > GitHub Pages no puede emitir un 301, así que el redirect va sí o sí en Cloudflare.
 >
-> **Después de correr el script, mirá `git status`.** Por cada carpeta que aparezca como
+> **Después de correr el script, mira `git status`.** Por cada carpeta que aparezca como
 > `deleted:`:
 >
-> 1. Anotá la regla `301` en [`docs/seguridad-cloudflare.md`](docs/seguridad-cloudflare.md) —
+> 1. Anota la regla `301` en [`docs/seguridad-cloudflare.md`](docs/seguridad-cloudflare.md) —
 >    §2.6 si es una categoría, §2.7 si es un producto. El destino es la categoría a la que
 >    pertenecía (sale del breadcrumb de la propia ficha, visible con
 >    `git show HEAD~1:producto/<slug>/index.html`).
-> 2. Aplicala en **Cloudflare → Rules → Redirect Rules** (o Bulk Redirects si son muchas)
+> 2. Aplícala en **Cloudflare → Rules → Redirect Rules** (o Bulk Redirects si son muchas)
 >    **antes** de que el cambio llegue a producción.
 >
 > Para categorías hay además un segundo paso en el código: agregar el slug viejo a
 > `LEGACY_CATEGORY_REDIRECTS` (`scripts/generate-pages.mjs`), que le deja una página puente con
 > `canonical` + `noindex, follow`. Es un respaldo, no un reemplazo del 301. Para productos no
 > existe ese respaldo: sin la regla de Cloudflare, la URL simplemente muere.
+>
+> ### ⚠️ Y el paso inverso: toda página que RESUCITA hay que desbloquearla
+>
+> Un producto reactivado en el panel recupera su carpeta en la siguiente corrida, pero **la regla
+> 301 vieja sigue viva en Cloudflare y secuestra la URL**: la ficha nueva no se puede abrir nunca.
+> Es el error más fácil de pasar por alto, porque `git status` no lo muestra — la carpeta aparece
+> como creada, no como problema. En la regeneración del 2026-09-06 volvieron **39** fichas así.
+>
+> Correr esto **antes** de tocar Cloudflare y borrar allá cada regla que liste (y su fila del doc):
+>
+> ```bash
+> grep -oE '/producto/[a-z0-9-]+/' docs/seguridad-cloudflare.md | sed 's#/producto/##; s#/##' \
+>   | sort -u | while read s; do [ -d "producto/$s" ] && echo "BORRAR REGLA: /producto/$s/"; done
+> ```
+>
+> Lo mismo vale para categorías: si un slug retirado vuelve a ser una familia viva, hay que
+> **sacarlo** de `LEGACY_CATEGORY_REDIRECTS` y borrar su regla. El script ahora avisa con un
+> `⚠` cuando detecta ese choque, en vez de pisar la página real con un stub de redirección.
 >
 > Comando para listar lo borrado en la última corrida:
 >
@@ -96,7 +117,8 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 ## Estructura de archivos
 
 ```text
-/                      páginas .html (7)
+/                      páginas .html sueltas
+/catalogo/index.html   el catálogo filtrable, servido en /catalogo/
 /producto/<slug>/      fichas estáticas generadas (una por producto)
 /categoria/<slug>/     landings de categoría generadas
 /css                   estilos
@@ -110,7 +132,7 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 /img                   /products, /images, /icons, /testimonials (preferir .webp)
 /scripts               estado-ramas.sh, guardar.sh (flujo de git)
 /supabase/schema.sql   esquema de la base de datos
-/supabase/migrations   migraciones incrementales (fase3 … fase9-roles)
+/supabase/migrations   migraciones incrementales (fase3 … fase12-precios)
 /supabase/functions    Edge Functions (admin-users: crear/eliminar usuarios del panel)
 /Editables/nav.html    markup del nav compartido
 ```
@@ -120,7 +142,9 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 ## Páginas
 
 - `index.html` — home: hero, productos destacados, reels de Instagram, footer.
-- `supplements-page.html` — catálogo filtrable.
+- `catalogo/index.html` — catálogo filtrable, servido en `/catalogo/`. La URL vieja
+  `supplements-page.html` quedó como puente (noindex + canonical); el 301 real lo aplica
+  Cloudflare (`docs/seguridad-cloudflare.md` §2.8).
 - `product-page.html` — detalle de producto, carga por `?id=` (UUID o legacy_id). Sigue vivo
   para no romper enlaces ya compartidos, pero su `canonical` apunta a `/producto/<slug>/`.
 - `producto/<slug>/index.html` — **generadas** por `scripts/generate-pages.mjs`. Traen title,
@@ -128,9 +152,9 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
   Facebook no ejecutan JS, así que sin esto el preview salía genérico). Se hidratan con
   Supabase al cargar; si Supabase no responde, conservan el contenido estático.
 - `categoria/<slug>/index.html` — **generadas**. Landing por categoría con al menos 3 productos.
-  Usan la misma card y la misma grilla (`.catalog-grid`) que `supplements-page.html`: la card va
+  Usan la misma card y la misma grilla (`.catalog-grid`) que `catalogo/index.html`: la card va
   escrita en el HTML (para el scraper) y `js/categoria.js` le engancha la cotización al cargar.
-  Los chips de subcategoría son `<a>` a `supplements-page.html?fam=…&tipo=…`, o sea que filtrar
+  Los chips de subcategoría son `<a>` a `/catalogo/?fam=…&tipo=…`, o sea que filtrar
   lleva al catálogo completo y no a otra página aparte.
 - `contacto.html` — página Sobre nosotros, acceso a WhatsApp y selector Google Maps/Waze.
 - `testimonios.html` — testimonios de clientes.
@@ -179,11 +203,21 @@ Los scripts cargan con `defer` y se comunican por objetos en `window`:
   persistencia y mensaje de WhatsApp.
 - `window.javyAuth` — `js/auth.js`. Sesión de admin y verificación de perfil.
 - `window.javyIcons` — `js/icons.js`. Iconos SVG inline (`get`, `enhance`).
+- `window.javyProductCard` — `js/product-card.js`. La card de producto **canónica**:
+  `render(product, {headingLevel, categories})` la arma desde cero, `hydrate(card, product)`
+  refresca una que ya vino escrita en el HTML, `markOrphan(card)` marca la de un producto que
+  ya no está en la base. Hoy la consume solo `categoria.js`; el catálogo, la home y los
+  relacionados de la ficha siguen con su propia copia (cada una lleva un comentario
+  "COPIA PENDIENTE DE MIGRAR"). Si tocas la card, tócala también en `generate-pages.mjs`,
+  que emite el gemelo en HTML.
 - `window.navigateWithTransition` — `js/include-nav.js`. Inyecta el nav y hace transiciones con fade.
 - `window.PRODUCTS` — `js/product-data.js`. ~180 productos hardcodeados (fallback, ver abajo).
 
 Otros archivos de `js/`: `script.js` (home), `supplements.js` (catálogo + filtros),
-`categoria.js` (engancha la cotización a las cards ya escritas de `categoria/**`),
+`categoria.js` (engancha la cotización a las cards ya escritas de `categoria/**` y las **hidrata**
+con los precios y la disponibilidad de ahora, más los productos que entraron después de generar
+el HTML; solo cuando los datos vienen de Supabase, nunca desde el respaldo local, que puede ser
+más viejo que la propia página),
 `product-page.js` (detalle + meta tags dinámicos), `contacto.js` (WhatsApp + ubicación), `login.js`,
 `testimonials.js`, `testimonials-data.js`, `supabase-config.js`, `whatsapp-config.js`.
 
@@ -238,8 +272,12 @@ Hay tres roles, guardados en `admin_profiles.role`:
 | Rol | Valor | Puede |
 | --- | --- | --- |
 | Admin | `admin` | Todo. El único que crea, edita y elimina usuarios y resetea contraseñas ajenas. |
-| Editor | `editor` | Catálogo completo (productos, combos, categorías, inicio). No toca usuarios. |
+| Editor | `editor` | Catálogo completo (productos, categorías, inicio). No toca usuarios. |
 | Lector | `viewer` | Solo consulta. Entra al panel y ve todo, pero no modifica nada. |
+
+La Fase 12 suma `can_manage_pricing()` (solo Admin), que gobierna los precios internos. Es idéntica
+a `can_manage_users()` pero con nombre propio, justamente para no repetir el enredo de `is_admin()`:
+**una función por permiso, con el nombre de lo que permite.**
 
 Tres funciones de Postgres deciden el permiso (`supabase/migrations/fase9-roles.sql`):
 `is_staff()` (cualquier perfil activo), `can_write()` (Admin + Editor) y `can_manage_users()`
@@ -248,7 +286,7 @@ administrador": se mantuvo el nombre para no reescribir las ~20 políticas que y
 
 En el panel, `js/admin/permissions.js` expone `canWrite()` / `canManageUsers()`. Cuando el usuario
 es Lector, `shell.js` pone la clase `ad-readonly` en el `<body>` y el CSS esconde todo lo marcado
-con `data-write-only`. **Eso es cosmética**: si querés verificar un permiso de verdad, probalo
+con `data-write-only`. **Eso es cosmética**: si quieres verificar un permiso de verdad, pruébalo
 contra la base, no contra la UI.
 
 Crear y eliminar usuarios toca `auth.users` y necesita la `service_role key`, que no puede vivir en
@@ -259,10 +297,51 @@ un sitio estático. Por eso existe la **Edge Function `admin-users`**
 Supabase sola. Cambiar la **propia** contraseña no pasa por ahí (lo hace el chip de usuario de la
 esquina superior derecha con `auth.updateUser`).
 
-El panel cubre: Dashboard, Productos, Sabores/variantes, Inicio (curación del home), Categorías,
-Combos, Accesos y Ajustes, más el **drawer de edición de producto**. Filtros de revisión:
+El panel cubre: Dashboard, Productos, **Precios**, Sabores/variantes, Inicio (curación del home),
+Categorías, Accesos y Ajustes, más el **drawer de edición de producto**. Filtros de revisión:
 sin imagen, sin sabor, faltan sabores, sin sabores activos, revisar tipo de sabor, no disponibles,
 precio vacío, destacados.
+
+### Precios (los tres precios de cada producto)
+
+Cada producto tiene un **precio de venta** (`products.price`, el que ve el cliente) y, desde la
+Fase 12, dos **precios internos** que la tienda nunca muestra:
+
+| Precio | Dónde vive | Quién lo ve |
+|---|---|---|
+| Venta | `products.price` | Público. Con `old_price` mayor, se pinta como oferta. |
+| Revendedor | `product_pricing.reseller_price` | Solo el panel. |
+| Javy | `product_pricing.javy_price` | Solo el panel. |
+
+Los internos **pueden estar vacíos** (`null` = "sin asignar", distinto de `0`) y no afectan en nada
+a la oferta: esa sigue siendo `price > 0 && old_price > price`, igual que siempre.
+
+La sección **Precios** (`js/admin/sections/pricing.js`) los muestra en una tabla editable: se filtra
+por lo que falta (*Sin revendedor*, *Sin Javy*, *Sin ninguno*), se teclean varios y se guardan todos
+juntos. Nada viaja hasta pulsar *Guardar*, y solo se envían los campos realmente modificados, así
+que editar un producto no pisa precios que no se tocaron. También se editan uno a uno desde la
+sección *"Precio y oferta"* del drawer.
+
+Escribe con `setProductPricing(id, { price, oldPrice, resellerPrice, javyPrice })` en `js/db.js`:
+cada campo es opcional y `undefined` significa **no tocar**. Los precios internos van a su propia
+tabla, así que cambiarlos no mueve `products.updated_at`.
+
+**Permisos:** todo el equipo los ve; solo **Admin** los edita (`can_manage_pricing()` en Postgres,
+`canManagePricing()` en `js/admin/permissions.js`).
+
+Si la migración `fase12-precios.sql` no está aplicada, `state.pricingSupported` queda en `false`:
+la sección lo avisa y el resto del panel funciona igual.
+
+En **Ajustes → Informes**, la *Lista de precios a medida* es el único generador de listas: los
+filtros (disponibilidad, categoría, marca y filtro extra) deciden qué productos entran y las
+casillas, qué precios se incluyen. La tabla en pantalla suma una columna por precio; en el PDF
+(formato catálogo) el primero que se pidió va como precio destacado y los demás, rotulados, en la
+línea de detalle. Los productos se agrupan por familia (Proteínas, Creatina) y, dentro de ella, por
+subcategoría (Whey, ISO, saborizada…); los cargados directo en la familia van primero, sin subtítulo.
+Bajo el nombre de cada producto van su marca y su presentación (`ON · 5 lb`), para distinguir dos
+formatos del mismo producto. La casilla *Incluir sabores disponibles* suma otra línea con los sabores
+en stock (hasta seis, luego `+N más`); los agotados y los productos sin sabor no la llevan. Los precios que no estén asignados salen como `—`, y si
+el informe lleva precios internos el propio documento lo advierte.
 
 ---
 
@@ -270,6 +349,10 @@ precio vacío, destacados.
 
 - `products` — catálogo (tiene columnas redundantes: `name`/`nombre`, `price`/`precio_centavos`).
 - `product_flavors` — sabores/variantes de cada producto, con disponibilidad individual.
+- `product_pricing` — precios internos (revendedor y Javy), uno por producto. Va **aparte de
+  `products`** a propósito: la política de lectura de `products` es pública, así que una columna
+  ahí sería legible con la clave publishable. Esta tabla no le da acceso a `anon`: leer requiere
+  `is_staff()` y escribir `can_manage_pricing()` (solo Admin). Migración: `fase12-precios.sql`.
 - `categories` — categorías y tipos (Proteínas, Creatinas, Pre-entrenos, etc.).
 - `admin_profiles` — usuarios del panel: vincula la cuenta de Auth con su rol
   (`admin` / `editor` / `viewer`), su nombre visible y si tiene el acceso activo. Un trigger
@@ -355,7 +438,8 @@ node --check js/product-page.js
 - Productos duplicados entre Supabase y `product-data.js` → decidir una sola fuente de verdad.
 - Columnas redundantes en `schema.sql` (`nombre`/`name`, `price`/`precio_centavos`).
 - Imágenes PNG sin optimizar (algunas >1MB).
-- Sin tests, linter ni CI/CD.
+- Sin tests ni linter. La única automatización es la regeneración nocturna del catálogo
+  (`.github/workflows/regenerar-catalogo.yml`), que abre PR en vez de commitear a `main`.
 - Breakpoints dispares entre módulos (900/767/620/520/480px). Estándar propuesto para código
   **nuevo**: `480px`, `768px`, `1024px`. La migración de los existentes queda pendiente (requiere
   revisión visual página por página).

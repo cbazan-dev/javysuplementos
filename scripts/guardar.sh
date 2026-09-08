@@ -14,7 +14,7 @@ fi
 
 if [ "$rama" = "main" ]; then
   echo "🚫 Estás en 'main'. A producción solo se llega por Pull Request aprobado."
-  echo "   Cambiá a tu rama de desarrollo (claude o codex) y volvé a intentar."
+  echo "   Cambia a tu rama de desarrollo (claude o codex) y vuelve a intentar."
   exit 1
 fi
 
@@ -40,7 +40,7 @@ fi
 echo "→ Trayendo lo último de origin/$rama…"
 if ! git pull --ff-only origin "$rama"; then
   echo "⚠️  La rama remota tiene cambios que no encajan directos (divergencia)."
-  echo "   Pedile a Claude/Codex que resuelva antes de guardar. No subí nada."
+  echo "   Pídele a Claude/Codex que resuelva antes de guardar. No subí nada."
   exit 1
 fi
 
@@ -53,7 +53,7 @@ if command -v node >/dev/null 2>&1; then
   fi
 else
   echo "⚠️  No encontré 'node': no pude verificar el token del panel admin."
-  echo "   Si tocaste js/admin/**, corré: node scripts/bump-admin-version.mjs"
+  echo "   Si tocaste js/admin/**, corre: node scripts/bump-admin-version.mjs"
 fi
 
 # Preparamos todo (modificados, nuevos y borrados) y RECIÉN ahí comprobamos si

@@ -4,6 +4,25 @@
   box-sizing: border-box;
 }
 
+/* El atributo [hidden] de HTML es `display: none` con especificidad 0-0-0, así
+   que CUALQUIER regla que fije display le gana y el elemento sigue a la vista
+   aunque el JS lo haya ocultado. Pasó de verdad: la línea "Domicilio $4.00" no
+   se iba de la cotización al cambiar a Retiro, el badge de visitas del hero se
+   veía vacío, y el "Subtotal" aparecía con la cotización vacía.
+
+   Se venía parchando caso por caso (hay reglas `.algo[hidden]` sueltas en
+   cards.css, supplements.css, cart.css y product.css). Esta regla lo resuelve
+   de raíz y evita el próximo. Es la misma que el panel admin ya tiene en
+   css/admin-dashboard.css.
+
+   El !important es seguro acá: se auditaron todas las reglas [hidden] del
+   proyecto y ninguna intenta MOSTRAR un elemento oculto; todas ocultan.
+   Para mostrar/ocultar desde JS: el.hidden = true/false, nunca style.display. */
+[hidden] {
+  display: none !important;
+}
+
+
 /* Scroll global del sitio: discreto y coherente con los filtros. */
 html {
   scrollbar-width: thin;

@@ -9,6 +9,6 @@ Levanta un servidor estático local para previsualizar el sitio.
 3. Si el puerto 8080 está ocupado, usa 8081, 8082, etc.
 4. Recuérdame los enlaces útiles:
    - Inicio: http://localhost:8080/index.html
-   - Catálogo: http://localhost:8080/supplements-page.html
+   - Catálogo: http://localhost:8080/catalogo/
    - Detalle: http://localhost:8080/product-page.html?id=<id-de-un-producto>
 5. Deja el servidor corriendo (no lo cierres) hasta que te lo pida.

@@ -55,23 +55,20 @@ const PRODUCT_FLAVORS_FRAGMENT = `
   )
 `;
 
-const PRODUCT_SELECT = `${PRODUCT_BASE_SELECT}, ${PRODUCT_FLAVORS_FRAGMENT}`;
-const PRODUCT_SELECT_AUDIT = `${PRODUCT_BASE_SELECT}, ${AUDIT_COLS}, ${PRODUCT_FLAVORS_FRAGMENT}`;
-
-const COMBO_BASE_SELECT = `
-  id, name, slug, description, image_url, price, precio_centavos, old_price,
-  is_active, show_on_home, sort_order, created_at, updated_at`;
-
-const COMBO_ITEMS_FRAGMENT = `
-  combo_items (
-    id, product_id, flavor_id, quantity, sort_order,
-    products ( id, name, image_url, price, slug, product_flavors ( id, name, available, is_available ) ),
-    product_flavors ( id, name )
+// Precios internos (Fase 12): revendedor y Javy. Viven en la tabla aparte
+// product_pricing, no en products, porque la politica de lectura de products es
+// publica. Igual que AUDIT_COLS, este fragmento SOLO se agrega al select del
+// admin: product_pricing no le da SELECT a anon, asi que pedirlo desde la web
+// publica haria fallar la consulta entera del catalogo.
+const PRODUCT_PRICING_FRAGMENT = `
+  product_pricing (
+    reseller_price,
+    javy_price
   )
 `;
 
-const COMBO_SELECT = `${COMBO_BASE_SELECT}, ${COMBO_ITEMS_FRAGMENT}`;
-const COMBO_SELECT_AUDIT = `${COMBO_BASE_SELECT}, ${AUDIT_COLS}, ${COMBO_ITEMS_FRAGMENT}`;
+const PRODUCT_SELECT = `${PRODUCT_BASE_SELECT}, ${PRODUCT_FLAVORS_FRAGMENT}`;
+const PRODUCT_SELECT_AUDIT = `${PRODUCT_BASE_SELECT}, ${AUDIT_COLS}, ${PRODUCT_FLAVORS_FRAGMENT}`;
 
 const DB_PLACEHOLDER_IMAGE = "img/products/product-placeholder.svg";
 const PRODUCT_IMAGE_BUCKET = "product-images";
@@ -181,6 +178,14 @@ function findLocalProductMatch(product = {}) {
   return Object.values(PRODUCTS).find((localProduct) => createSlug(localProduct.nombre || localProduct.name) === productSlug) || null;
 }
 
+// Precio que puede no estar asignado: null y "" son "sin asignar", 0 es un
+// precio real. Number("") daria 0, que aqui significaria algo distinto.
+function toNullablePrice(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeFlavor(flavor, index = 0) {
   if (typeof flavor === "string") {
     return {
@@ -232,6 +237,12 @@ function normalizeProductFromDb(product) {
   const category = getUsefulText(product.category === "Producto" ? "" : product.category, product.categoria, product.tag) || "Producto";
   const presentation = product.presentation || product.presentacion || "";
   const price = Number(product.price ?? product.precio ?? (product.precio_centavos != null ? product.precio_centavos / 100 : 0));
+  // Precios internos (Fase 12). Llegan por el embed product_pricing, que solo
+  // pide el admin; en la web publica quedan en null y nadie los usa. PostgREST
+  // puede devolver un embed 1:1 como objeto o como arreglo de un elemento.
+  const pricingRow = Array.isArray(product.product_pricing)
+    ? product.product_pricing[0] || null
+    : product.product_pricing || null;
   // Los campos editoriales son manuales: una cadena o arreglo vacío debe seguir
   // vacío, no convertirse en contenido genérico durante la normalización.
   const descriptionText = product.description_long ?? product.description ?? product.descripcion ?? "";
@@ -248,6 +259,9 @@ function normalizeProductFromDb(product) {
     category_id: product.category_id ?? null,
     price,
     old_price: product.old_price == null || product.old_price === "" ? null : Number(product.old_price),
+    // null = sin asignar. No se muestran nunca en la tienda publica.
+    reseller_price: toNullablePrice(pricingRow ? pricingRow.reseller_price : null),
+    javy_price: toNullablePrice(pricingRow ? pricingRow.javy_price : null),
     presentation,
     image,
     image_url: image,
@@ -448,6 +462,24 @@ async function auditStamp(includeCreated = false) {
   return includeCreated ? { created_by: email, updated_by: email } : { updated_by: email };
 }
 
+// ===== Precios internos (Fase 12) =====
+// Existe la tabla product_pricing? Se detecta una vez, igual que auditEnabled().
+// Si la migracion fase12 no se aplico, el panel sigue funcionando sin precios
+// internos en vez de romperse. Devuelve false tambien para quien no tenga
+// permiso de leerla (la politica solo deja a los perfiles activos del panel).
+let pricingTableEnabled;
+async function pricingEnabled() {
+  if (pricingTableEnabled !== undefined) return pricingTableEnabled;
+  if (!hasSupabaseClient()) return (pricingTableEnabled = false);
+  try {
+    const { error } = await supabaseClient.from("product_pricing").select("product_id").limit(1);
+    pricingTableEnabled = !error;
+  } catch (error) {
+    pricingTableEnabled = false;
+  }
+  return pricingTableEnabled;
+}
+
 // ===== Historial de actividad (Fase 6) =====
 // ¿Existe la tabla activity_log? Se detecta una vez. Si la migración fase6 no se
 // aplicó, todo sigue funcionando sin registrar historial.
@@ -520,7 +552,13 @@ async function getProductsWithFlavors(options = {}) {
     try {
       // Las columnas de auditoría (email del editor) sólo se piden en el admin
       // (options.audit), nunca en el catálogo público, para no exponer correos.
-      const productSelect = (options.audit && await auditEnabled()) ? PRODUCT_SELECT_AUDIT : PRODUCT_SELECT;
+      let productSelect = (options.audit && await auditEnabled()) ? PRODUCT_SELECT_AUDIT : PRODUCT_SELECT;
+      // Los precios internos (revendedor/Javy) siguen la misma regla: solo el
+      // admin. anon no tiene permiso sobre product_pricing, asi que pedir el
+      // embed desde la web publica romperia la consulta entera.
+      if (options.audit && await pricingEnabled()) {
+        productSelect += `, ${PRODUCT_PRICING_FRAGMENT}`;
+      }
       // El catálogo público solo ve productos activos. Sin este filtro los
       // borradores se cuelan: `available` se resuelve por
       // `is_available ?? available ?? is_active`, y como los importados traen
@@ -657,7 +695,7 @@ async function createCategory({ name, parentId = null, sortOrder = 100 }) {
     (c) => (c.name || "").trim().toLowerCase() === trimmed.toLowerCase(),
   );
   if (clash) {
-    throw new Error(`Ya existe «${clash.name}» en este nivel. Usá esa o elegí otro nombre.`);
+    throw new Error(`Ya existe «${clash.name}» en este nivel. Usa esa o elige otro nombre.`);
   }
   // Slug único: fam- para familias, tipo- para tipos, + base del nombre.
   const base = categorySlugify(trimmed) || "categoria";
@@ -885,9 +923,15 @@ async function updateHomeProducts(productIds = []) {
     throw new Error("No puedes mostrar mas de 8 productos en el inicio.");
   }
 
+  /* Se apaga SOLO la curación del inicio. Antes esta línea también ponía
+     is_featured/featured en false en TODO el catálogo, así que guardar el
+     inicio borraba de un saque los destacados que vivían fuera de él: quedaban
+     productos marcados como destacados en el drawer y apagados en la base sin
+     que nadie los hubiera tocado. "Destacado" (resalta en su categoría) y
+     "en el inicio" son cosas distintas; solo la segunda se administra acá. */
   const { error: resetError } = await supabaseClient
     .from("products")
-    .update({ show_on_home: false, home_order: null, is_featured: false, featured: false })
+    .update({ show_on_home: false, home_order: null })
     .not("id", "is", null);
 
   if (resetError) throw resetError;
@@ -1098,50 +1142,144 @@ async function setProductAvailability(id, available) {
   return result;
 }
 
-// Update parcial de precio: toca SOLO las columnas de precio. No pasa por
+// Convierte lo que escribió el admin en un precio guardable, o tira un error
+// legible. null y "" son "sin asignar"; la coma decimal se acepta porque en
+// Panamá se teclea así y `Number("12,50")` seria NaN.
+function parsePriceOrThrow(value, label) {
+  if (value == null || String(value).trim() === "") return null;
+  const n = Number(String(value).trim().replace(",", "."));
+  if (!Number.isFinite(n)) throw new Error(`${label} no es un número válido.`);
+  if (n < 0) throw new Error(`${label} no puede ser negativo.`);
+  return n;
+}
+
+// Update parcial de precios: toca SOLO lo que se le pasa. No pasa por
 // mapProductToDb, así que no reescribe imagen, slug ni disponibilidad.
-// `oldPrice` undefined = no tocar la oferta; null o "" = quitar la oferta.
-async function setProductPricing(id, { price, oldPrice } = {}) {
+//
+// Cada campo es opcional y `undefined` = "no tocar". null o "" = borrar:
+//   price         → products.price (+ precio_centavos). El precio de venta.
+//   oldPrice      → products.old_price. Borrarlo quita la oferta.
+//   resellerPrice → product_pricing.reseller_price (Fase 12).
+//   javyPrice     → product_pricing.javy_price (Fase 12).
+//
+// Los precios internos viven en otra tabla, así que cambiarlos NO toca la fila
+// del producto: no mueve products.updated_at ni invalida el guard de edición
+// concurrente de quien tenga el drawer abierto en ese momento.
+//
+// Devuelve el producto normalizado si se tocó products; si sólo se tocaron los
+// precios internos, devuelve { id, name, reseller_price, javy_price }.
+async function setProductPricing(id, { price, oldPrice, resellerPrice, javyPrice } = {}) {
   ensureSupabaseForWrite();
-  // Precio anterior, para el texto del historial ("de $50 a $60").
-  let prevPrice = null;
+
+  const touchesPublic = price !== undefined || oldPrice !== undefined;
+  const touchesInternal = resellerPrice !== undefined || javyPrice !== undefined;
+  if (!touchesPublic && !touchesInternal) return null;
+
+  // Estado anterior, para el texto del historial ("de $50 a $60") y el nombre.
+  let prev = null;
   try {
-    const { data: prev } = await supabaseClient.from("products").select("price").eq("id", id).maybeSingle();
-    prevPrice = prev?.price;
+    const { data } = await supabaseClient
+      .from("products")
+      .select("name, price, old_price")
+      .eq("id", id)
+      .maybeSingle();
+    prev = data;
   } catch (_) { /* el historial es opcional */ }
-  const numericPrice = price === "" || price == null ? null : Number(price);
-  if (numericPrice != null && !Number.isFinite(numericPrice)) {
-    throw new Error("El precio no es un número válido.");
-  }
-  const payload = {
-    price: numericPrice,
-    precio_centavos: numericPrice == null ? 0 : Math.round(numericPrice * 100),
-    ...(await auditStamp()),
-  };
-  if (oldPrice !== undefined) {
-    const numericOld = oldPrice === "" || oldPrice == null ? null : Number(oldPrice);
-    if (numericOld != null && !Number.isFinite(numericOld)) {
-      throw new Error("El precio anterior no es un número válido.");
+
+  // Se parsea TODO antes de escribir nada: si un valor es inválido, el producto
+  // no queda a medio actualizar.
+  const parsed = {};
+  if (price !== undefined) parsed.price = parsePriceOrThrow(price, "El precio");
+  if (oldPrice !== undefined) parsed.oldPrice = parsePriceOrThrow(oldPrice, "El precio anterior");
+  if (resellerPrice !== undefined) parsed.resellerPrice = parsePriceOrThrow(resellerPrice, "El precio revendedor");
+  if (javyPrice !== undefined) parsed.javyPrice = parsePriceOrThrow(javyPrice, "El precio Javy");
+
+  const changes = [];
+  let result = null;
+
+  if (touchesPublic) {
+    const payload = { ...(await auditStamp()) };
+    if (price !== undefined) {
+      payload.price = parsed.price;
+      payload.precio_centavos = parsed.price == null ? 0 : Math.round(parsed.price * 100);
     }
-    payload.old_price = numericOld;
+    if (oldPrice !== undefined) payload.old_price = parsed.oldPrice;
+
+    const { data, error } = await supabaseClient
+      .from("products")
+      .update(payload)
+      .eq("id", id)
+      .select(PRODUCT_BASE_SELECT)
+      .single();
+
+    if (error) throw error;
+    result = normalizeProductFromDb(data);
+
+    if (price !== undefined && Number(prev?.price || 0) !== Number(result.price || 0)) {
+      changes.push({ field: "precio", from: priceLabel(prev?.price), to: priceLabel(result.price) });
+    }
+    if (oldPrice !== undefined && Number(prev?.old_price || 0) !== Number(result.old_price || 0)) {
+      changes.push({ field: "oferta", from: priceLabel(prev?.old_price), to: priceLabel(result.old_price) });
+    }
   }
 
-  const { data, error } = await supabaseClient
-    .from("products")
-    .update(payload)
-    .eq("id", id)
-    .select(PRODUCT_BASE_SELECT)
-    .single();
+  let pricingRow = null;
+  if (touchesInternal) {
+    if (!(await pricingEnabled())) {
+      throw new Error("Los precios internos no están disponibles. Falta aplicar la migración fase12-precios.sql.");
+    }
 
-  if (error) throw error;
+    let prevPricing = null;
+    try {
+      const { data } = await supabaseClient
+        .from("product_pricing")
+        .select("reseller_price, javy_price")
+        .eq("product_id", id)
+        .maybeSingle();
+      prevPricing = data;
+    } catch (_) { /* el historial es opcional */ }
+
+    // upsert con SOLO las columnas pedidas: tocar el precio revendedor nunca
+    // borra el de Javy (ni al revés), aunque la fila ya exista.
+    const row = { product_id: id, updated_by: await getCurrentUserEmail() };
+    if (resellerPrice !== undefined) row.reseller_price = parsed.resellerPrice;
+    if (javyPrice !== undefined) row.javy_price = parsed.javyPrice;
+
+    const { data, error } = await supabaseClient
+      .from("product_pricing")
+      .upsert(row, { onConflict: "product_id" })
+      .select("reseller_price, javy_price")
+      .single();
+
+    if (error) throw error;
+    pricingRow = data;
+
+    if (resellerPrice !== undefined && Number(prevPricing?.reseller_price || 0) !== Number(data?.reseller_price || 0)) {
+      changes.push({ field: "precio revendedor", from: priceLabel(prevPricing?.reseller_price), to: priceLabel(data?.reseller_price) });
+    }
+    if (javyPrice !== undefined && Number(prevPricing?.javy_price || 0) !== Number(data?.javy_price || 0)) {
+      changes.push({ field: "precio Javy", from: priceLabel(prevPricing?.javy_price), to: priceLabel(data?.javy_price) });
+    }
+  }
+
   productsCache = null;
-  const result = normalizeProductFromDb(data);
-  await logActivity({
-    action: "price", entity_type: "product", entity_id: id, entity_name: result.name,
-    field: "precio", old_value: priceLabel(prevPrice), new_value: priceLabel(result.price),
-    summary: `cambió el precio de «${result.name}» de ${priceLabel(prevPrice)} a ${priceLabel(result.price)}`,
-  });
-  return result;
+
+  const name = result?.name || prev?.name || "";
+  for (const change of changes) {
+    await logActivity({
+      action: "price", entity_type: "product", entity_id: id, entity_name: name,
+      field: change.field, old_value: change.from, new_value: change.to,
+      summary: `cambió el ${change.field} de «${name}» de ${change.from} a ${change.to}`,
+    });
+  }
+
+  if (result) return result;
+  return {
+    id,
+    name,
+    reseller_price: toNullablePrice(pricingRow ? pricingRow.reseller_price : null),
+    javy_price: toNullablePrice(pricingRow ? pricingRow.javy_price : null),
+  };
 }
 
 // Update parcial de disponibilidad de un sabor: no reescribe nombre/precio/stock.
@@ -1304,169 +1442,6 @@ async function seedProductsFromLocalData() {
   return summary;
 }
 
-// ===== Combos =====
-function normalizeCombo(combo) {
-  const items = (combo.combo_items || [])
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((item) => {
-      const product = item.products || null;
-      // Sabores disponibles del producto (para que el cliente elija en la card
-      // de combo), no solo el que dejó cargado el admin al armar el combo.
-      const flavors = (product?.product_flavors || [])
-        .map(normalizeFlavor)
-        .filter((flavor) => flavor.name)
-        .sort((a, b) => a.name.localeCompare(b.name, "es"));
-      return {
-        id: item.id,
-        product_id: item.product_id,
-        flavor_id: item.flavor_id,
-        quantity: item.quantity ?? 1,
-        product_name: product?.name || "Producto",
-        product_image: product?.image_url || DB_PLACEHOLDER_IMAGE,
-        product_slug: product?.slug || null,
-        flavor_name: item.product_flavors?.name || null,
-        flavors,
-      };
-    });
-
-  const price = combo.price == null
-    ? (combo.precio_centavos ? combo.precio_centavos / 100 : null)
-    : Number(combo.price);
-
-  return {
-    id: combo.id,
-    name: combo.name,
-    slug: combo.slug,
-    description: combo.description || "",
-    image: combo.image_url || DB_PLACEHOLDER_IMAGE,
-    image_url: combo.image_url || "",
-    price,
-    old_price: combo.old_price == null || combo.old_price === "" ? null : Number(combo.old_price),
-    is_active: combo.is_active !== false,
-    show_on_home: Boolean(combo.show_on_home),
-    sort_order: combo.sort_order ?? 100,
-    items,
-    created_at: combo.created_at,
-    updated_at: combo.updated_at,
-    created_by: combo.created_by || null,
-    updated_by: combo.updated_by || null,
-  };
-}
-
-function mapComboToDb(data = {}) {
-  const price = data.price === "" || data.price == null ? null : Number(data.price);
-  const oldPrice = data.old_price === "" || data.old_price == null ? null : Number(data.old_price);
-  return {
-    name: data.name?.trim(),
-    description: data.description?.trim() || null,
-    image_url: data.image_url?.trim() || null,
-    price,
-    precio_centavos: price == null ? 0 : Math.round(price * 100),
-    old_price: oldPrice,
-    is_active: data.is_active ?? true,
-    show_on_home: Boolean(data.show_on_home),
-    sort_order: data.sort_order ?? 100,
-  };
-}
-
-async function getCombos(options = {}) {
-  if (!hasSupabaseClient()) return [];
-  const comboSelect = (options.audit && await auditEnabled()) ? COMBO_SELECT_AUDIT : COMBO_SELECT;
-  let query = supabaseClient.from("combos").select(comboSelect).order("sort_order", { ascending: true });
-  if (options.activeOnly) query = query.eq("is_active", true);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeCombo);
-}
-
-async function createCombo(data) {
-  ensureSupabaseForWrite();
-  const payload = mapComboToDb(data);
-  payload.slug = `${categorySlugify(data.name) || "combo"}-${Date.now().toString(36)}`;
-  Object.assign(payload, await auditStamp(true));
-  const { data: row, error } = await supabaseClient.from("combos").insert(payload).select(COMBO_SELECT).single();
-  if (error) throw error;
-  const result = normalizeCombo(row);
-  await logActivity({ action: "create", entity_type: "combo", entity_id: result.id, entity_name: result.name, summary: `creó el combo «${result.name}»` });
-  return result;
-}
-
-async function updateCombo(id, data) {
-  ensureSupabaseForWrite();
-  let prevRow = null;
-  try {
-    const { data: prev } = await supabaseClient.from("combos").select("name, price, old_price, is_active").eq("id", id).maybeSingle();
-    prevRow = prev;
-  } catch (_) { /* el historial es opcional */ }
-  const payload = mapComboToDb(data);
-  Object.assign(payload, await auditStamp());
-  const { data: row, error } = await supabaseClient.from("combos").update(payload).eq("id", id).select(COMBO_SELECT).single();
-  if (error) throw error;
-  const result = normalizeCombo(row);
-
-  const changes = [];
-  if (prevRow) {
-    if ((prevRow.name || "") !== (result.name || "")) changes.push(`nombre «${prevRow.name}» → «${result.name}»`);
-    if (Number(prevRow.price || 0) !== Number(result.price || 0)) changes.push(`precio ${priceLabel(prevRow.price)} → ${priceLabel(result.price)}`);
-    if (Number(prevRow.old_price || 0) !== Number(result.old_price || 0)) changes.push(`oferta ${priceLabel(prevRow.old_price)} → ${priceLabel(result.old_price)}`);
-    if ((prevRow.is_active !== false) !== (result.is_active !== false)) changes.push(result.is_active !== false ? "activado" : "desactivado");
-  }
-  await logActivity({
-    action: "update", entity_type: "combo", entity_id: id, entity_name: result.name,
-    summary: changes.length ? `editó el combo «${result.name}»: ${changes.join(", ")}` : `editó el combo «${result.name}»`,
-  });
-  return result;
-}
-
-// Update parcial: solo activa/desactiva el combo.
-async function setComboActive(id, active) {
-  ensureSupabaseForWrite();
-  const { data, error } = await supabaseClient
-    .from("combos")
-    .update({ is_active: Boolean(active), ...(await auditStamp()) })
-    .eq("id", id)
-    .select(COMBO_SELECT)
-    .single();
-  if (error) throw error;
-  const result = normalizeCombo(data);
-  await logActivity({
-    action: "availability", entity_type: "combo", entity_id: id, entity_name: result.name,
-    field: "estado", new_value: active ? "activo" : "inactivo",
-    summary: `${active ? "activó" : "desactivó"} el combo «${result.name}»`,
-  });
-  return result;
-}
-
-async function deleteCombo(id) {
-  ensureSupabaseForWrite();
-  let name = null;
-  try {
-    const { data: prev } = await supabaseClient.from("combos").select("name").eq("id", id).maybeSingle();
-    name = prev?.name;
-  } catch (_) { /* el historial es opcional */ }
-  const { error } = await supabaseClient.from("combos").delete().eq("id", id);
-  if (error) throw error;
-  await logActivity({ action: "delete", entity_type: "combo", entity_id: id, entity_name: name, summary: `eliminó el combo «${name || id}»` });
-}
-
-// Reemplaza por completo los items de un combo.
-async function saveComboItems(comboId, items = []) {
-  ensureSupabaseForWrite();
-  const { error: delError } = await supabaseClient.from("combo_items").delete().eq("combo_id", comboId);
-  if (delError) throw delError;
-  if (!items.length) return;
-  const rows = items.map((item, index) => ({
-    combo_id: comboId,
-    product_id: item.product_id,
-    flavor_id: item.flavor_id || null,
-    quantity: item.quantity || 1,
-    sort_order: index,
-  }));
-  const { error: insError } = await supabaseClient.from("combo_items").insert(rows);
-  if (insError) throw insError;
-}
-
 function getProductsCacheSource() {
   return productsCacheSource;
 }
@@ -1481,12 +1456,6 @@ window.catalogDb = {
   updateCategory,
   deleteCategory,
   getCategoryProductCount,
-  getCombos,
-  createCombo,
-  updateCombo,
-  setComboActive,
-  deleteCombo,
-  saveComboItems,
   getAdminProfile,
   getAdminProfiles,
   setAdminProfileActive,
@@ -1502,6 +1471,8 @@ window.catalogDb = {
   updateProduct,
   setProductAvailability,
   setProductPricing,
+  pricingEnabled,
+  parsePrice: parsePriceOrThrow,
   setFlavorAvailability,
   deleteProduct,
   createFlavor,

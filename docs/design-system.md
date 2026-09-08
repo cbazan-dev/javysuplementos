@@ -1,7 +1,7 @@
 # Sistema de diseño — Javy Suplementos
 
 Fuente única de verdad de estilos. **No hardcodees colores en los componentes**:
-usá las variables (tokens) definidas en [`css/tokens.css`](../css/tokens.css).
+usa las variables (tokens) definidas en [`css/tokens.css`](../css/tokens.css).
 
 ## Cómo carga
 

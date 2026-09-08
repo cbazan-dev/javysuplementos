@@ -2,13 +2,13 @@
    Sección Productos: barra de búsqueda + filtros (familia + estado) y la
    tabla/cards con acciones por fila.
    ============================================================================ */
-import { state, families, typesOf, catById } from "../state.js?v=adm-3ae53034";
-import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-3ae53034";
-import { setView } from "../view.js?v=adm-3ae53034";
-import { bindEditClicks } from "../shell.js?v=adm-3ae53034";
-import { confirmModal, toast } from "../ui.js?v=adm-3ae53034";
-import { reloadProducts } from "../data.js?v=adm-3ae53034";
-import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-3ae53034";
+import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-f1bd090d";
+import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-f1bd090d";
+import { setView } from "../view.js?v=adm-f1bd090d";
+import { bindEditClicks } from "../shell.js?v=adm-f1bd090d";
+import { confirmModal, toast } from "../ui.js?v=adm-f1bd090d";
+import { reloadProducts } from "../data.js?v=adm-f1bd090d";
+import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-f1bd090d";
 
 const STATUS_FILTERS = [
   ["all", "Todos"], ["home", "En inicio"], ["offers", "En oferta"], ["out", "Agotados"], ["noimg", "Sin imagen"],
@@ -16,18 +16,9 @@ const STATUS_FILTERS = [
 ];
 
 // Filtro por categoría (familia) y, si hay, subcategoría (tipo) exacta.
-// "none" = colgado de la familia sin bajar a una subcategoría.
-function matchesCategory(p) {
-  const c = state.productCategory, s = state.productSubcategory;
-  if (c === "all") return true;
-  const cat = catById(p.category_id);
-  if (!cat) return false;
-  const inCat = cat.id === c || cat.parent_id === c;
-  if (!inCat) return false;
-  if (s === "all") return true;
-  if (s === "none") return String(p.category_id) === String(c);
-  return String(p.category_id) === String(s);
-}
+// La lógica vive en state.js porque la comparte con la sección Precios.
+const matchesCategory = (p) =>
+  matchesCategoryFilter(p, state.productCategory, state.productSubcategory);
 
 // Producto asignado a una familia sin bajar a una subcategoría. Es el estado
 // que vacía el segundo nivel del catálogo público.
@@ -72,7 +63,7 @@ const toggleButton = (p) => {
 // Tabla (desktop) + cards (móvil) o estado vacío. Es lo único que se re-renderiza al teclear.
 function resultsHTML(list) {
   if (list.length === 0) {
-    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Probá con otra búsqueda o tocá “Limpiar”.</p></div>`;
+    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Prueba con otra búsqueda o toca “Limpiar”.</p></div>`;
   }
   const rows = list.map((p) => `
     <tr>

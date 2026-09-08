@@ -40,6 +40,16 @@ function slugify(value = "") {
     .replace(/^-|-$/g, "");
 }
 
+/* El badge "Destacado" de la card. El catálogo y la ficha de producto lo pintan
+   con `featured` a secas; en la home vale también `show_on_home` porque los dos
+   campos viven desincronizados en la base: hay productos curados en el inicio
+   con `featured` en false, y sin esto la sección salía con unas cards con badge
+   y otras sin, sin ninguna diferencia visible para el cliente. Estar curado en
+   el inicio ES ser destacado. */
+function isFeatured(product) {
+  return product?.featured === true || product?.show_on_home === true;
+}
+
 function productCanBeQuoted(product) {
   if (product.available === false) return false;
   if (!product.flavors?.length) return true;
@@ -191,6 +201,8 @@ function renderFeaturedProducts(productos) {
   lista.innerHTML = "";
   bindConsultationSync();
 
+  // COPIA PENDIENTE DE MIGRAR: la card canónica vive en js/product-card.js
+  // (window.javyProductCard.render). Si tocas la card, tócala también allá.
   productos.forEach((product) => {
     const canQuote = productCanBeQuoted(product);
     const card = document.createElement("article");
@@ -200,6 +212,7 @@ function renderFeaturedProducts(productos) {
     const detailUrl = window.javyProductUrl?.forProduct?.(product) || `product-page.html?id=${encodeURIComponent(product.id)}`;
     card.innerHTML = `
       <a class="product-card__media product-card__media-link" href="${detailUrl}" aria-label="Ver ${escapeHTML(product.name)}">
+        ${isFeatured(product) ? '<span class="product-card__badge">Destacado</span>' : ""}
         <img src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" class="product-card__img" loading="lazy" />
       </a>
 
@@ -291,155 +304,6 @@ async function initHomeProducts() {
 
 initHomeProducts();
 
-// ===== Combos =====
-const combosSection = document.getElementById("combos");
-const combosList = document.getElementById("home-combos__list");
-
-// Un combo se agrega a la cotización como un item con forma de producto.
-function comboToQuoteProduct(combo) {
-  return {
-    id: combo.id,
-    name: `Combo: ${combo.name}`,
-    brand: "",
-    category: "Combo",
-    price: combo.price,
-    presentation: combo.items
-      .map((i) => `${i.quantity}× ${i.product_name}${i.flavor_name ? ` (${i.flavor_name})` : ""}`)
-      .join(", "),
-    image: combo.image,
-  };
-}
-
-// Selector de sabor de UN producto dentro de una card de combo. A diferencia
-// de renderFlavorOptions (cards de producto suelto), acá cada combo puede
-// tener varios de estos, uno por item, así que el id/label van indexados.
-function renderComboItemFlavorSelect(combo, item, index) {
-  const flavors = item.flavors || [];
-  const selectId = `combo-flavor-${slugify(combo.id)}-${index}`;
-
-  if (!flavors.length) {
-    return `
-      <label class="product-card__flavor-label" for="${selectId}">Sabor</label>
-      <select class="product-card__flavor-select" id="${selectId}" data-combo-flavor-select disabled>
-        <option>Sin sabor</option>
-      </select>
-    `;
-  }
-
-  return `
-    <label class="product-card__flavor-label" for="${selectId}">Sabor</label>
-    <select class="product-card__flavor-select" id="${selectId}" data-combo-flavor-select>
-      <option value="">Elegir sabor</option>
-      ${flavors.map((flavor) => `
-        <option value="${escapeHTML(flavor.id)}" ${flavor.available === false ? "disabled" : ""}>
-          ${escapeHTML(flavor.name)}${flavor.available === false ? " — No disponible" : ""}
-        </option>
-      `).join("")}
-    </select>
-  `;
-}
-
-function renderHomeCombos(combos) {
-  if (!combosSection || !combosList) return;
-  if (!combos.length) {
-    combosSection.hidden = true;
-    return;
-  }
-  combosSection.hidden = false;
-  combosList.innerHTML = "";
-
-  combos.forEach((combo) => {
-    const card = document.createElement("article");
-    card.className = "product-card combo-card";
-    // Cada producto del combo muestra su propia foto (reutilizada del catálogo)
-    // en vez de una imagen genérica del combo, y su propio selector de sabor.
-    const itemsHtml = combo.items
-      .map((item, index) => `
-        <li class="combo-card__item">
-          <div class="combo-card__item-media">
-            <img src="${escapeHTML(item.product_image)}" alt="${escapeHTML(item.product_name)}" loading="lazy" />
-          </div>
-          <div class="combo-card__item-body">
-            <div class="combo-card__item-name">${item.quantity > 1 ? `${item.quantity}× ` : ""}${escapeHTML(item.product_name)}</div>
-            ${renderComboItemFlavorSelect(combo, item, index)}
-          </div>
-        </li>
-      `)
-      .join("");
-
-    card.innerHTML = `
-      <span class="combo-card__badge">Combo</span>
-      <div class="product-card__info">
-        <h3 class="product-card__name">${escapeHTML(combo.name)}</h3>
-        ${combo.description ? `<p class="combo-card__desc">${escapeHTML(combo.description)}</p>` : ""}
-        <div class="product-card__price-row">
-          <span class="product-card__price-group">
-            <span class="product-card__price">${formatPrice(combo.price)}</span>
-            ${hasOffer(combo) ? `<span class="product-card__price-old">${formatPrice(combo.old_price)}</span><span class="product-card__discount">-${discountPercent(combo)}%</span>` : ""}
-          </span>
-        </div>
-        <ul class="combo-card__items">${itemsHtml}</ul>
-      </div>
-      <div class="product-card__actions product-card__actions--catalog">
-        <button class="product-card__btn product-card__btn--buy" type="button">Agregar combo a cotización</button>
-      </div>
-    `;
-
-    // Saca el aviso de "elegí un sabor" apenas el cliente elige uno.
-    card.querySelectorAll("[data-combo-flavor-select]").forEach((select) => {
-      select.addEventListener("change", () => select.classList.remove("needs-selection"));
-    });
-
-    card.querySelector(".product-card__btn--buy")?.addEventListener("click", () => {
-      const selects = Array.from(card.querySelectorAll("[data-combo-flavor-select]"));
-      let missingSelect = null;
-
-      const chosenItems = combo.items.map((item, index) => {
-        if (!item.flavors?.length) return item;
-        const select = selects[index];
-        const value = select?.value || "";
-        if (!value) {
-          select?.classList.add("needs-selection");
-          if (!missingSelect) missingSelect = select;
-          return null;
-        }
-        const flavor = item.flavors.find((f) => f.id === value);
-        return { ...item, flavor_id: flavor?.id || null, flavor_name: flavor?.name || null };
-      });
-
-      if (chosenItems.includes(null)) {
-        missingSelect?.focus();
-        window.consultation?.toast?.("Elegí un sabor para cada producto del combo");
-        return;
-      }
-
-      if (window.consultation?.hasItem?.(combo.id, "")) {
-        window.consultation?.toast?.("Ese combo ya está en tu cotización");
-        return;
-      }
-      window.consultation?.addItem?.(comboToQuoteProduct({ ...combo, items: chosenItems }), { quantity: 1 });
-      window.consultation?.toast?.("Combo agregado a tu cotización");
-    });
-
-    combosList.appendChild(card);
-  });
-
-  window.javyIcons?.enhance?.(combosList);
-}
-
-async function initHomeCombos() {
-  if (!combosList) return;
-  try {
-    const combos = await window.catalogDb.getCombos({ activeOnly: true });
-    const flagged = combos.filter((c) => c.show_on_home);
-    renderHomeCombos((flagged.length ? flagged : combos).slice(0, 8));
-  } catch (error) {
-    console.warn("No se pudieron cargar combos:", error.message);
-    if (combosSection) combosSection.hidden = true;
-  }
-}
-
-initHomeCombos();
 
 /* ============================================================================
    Compra por categoría + objetivos
@@ -644,7 +508,7 @@ function renderHomeCategoriesFlat(products) {
     .map(([label, count]) => {
       const slug = slugify(label);
       return `
-      <a class="home-cat" href="/supplements-page.html?cat=${encodeURIComponent(slug)}"
+      <a class="home-cat" href="/catalogo/?cat=${encodeURIComponent(slug)}"
          aria-label="${escapeHTML(`${label}, ${count} producto${count === 1 ? "" : "s"}`)}">
         <span class="home-cat__icon" aria-hidden="true" data-javy-icon="${escapeHTML(iconForFamily(slug))}"></span>
         <span class="home-cat__name">${escapeHTML(label)}</span>
@@ -689,7 +553,7 @@ function renderHomeGoals(products) {
   if (!chips.length) return;
 
   homeGoalsRow.innerHTML = chips.map((goal) => `
-    <a class="home-goal" href="/supplements-page.html?obj=${encodeURIComponent(goal.slugs.join(","))}"
+    <a class="home-goal" href="/catalogo/?obj=${encodeURIComponent(goal.slugs.join(","))}"
        aria-label="${escapeHTML(`${goal.label}, ${goal.count} producto${goal.count === 1 ? "" : "s"}`)}">
       <span class="home-goal__icon" aria-hidden="true" data-javy-icon="${escapeHTML(goal.icon)}"></span>
       <span class="home-goal__label">${escapeHTML(goal.label)}</span>
@@ -723,7 +587,7 @@ function renderHomeBrands(products) {
   if (!brands.length) return;
 
   grid.innerHTML = brands.map(([brand, count]) => `
-    <a class="home-brand" href="/supplements-page.html?marca=${encodeURIComponent(slugify(brand))}"
+    <a class="home-brand" href="/catalogo/?marca=${encodeURIComponent(slugify(brand))}"
        aria-label="${escapeHTML(`${brand}, ${count} producto${count === 1 ? "" : "s"}`)}">
       <span class="home-brand__name">${escapeHTML(brand)}</span>
       <span class="home-brand__count" aria-hidden="true">${count} producto${count === 1 ? "" : "s"}</span>

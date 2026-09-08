@@ -108,7 +108,7 @@ if (filesChanged === 0) {
 if (CHECK) {
   console.error(
     `❌ Token del panel desactualizado: ${[...stale].join(", ")} → ${token} ` +
-      `(${filesChanged} archivos). Corré: node scripts/bump-admin-version.mjs (o usá /guardar).`
+      `(${filesChanged} archivos). Corre: node scripts/bump-admin-version.mjs (o usa /guardar).`
   );
   process.exit(1);
 }

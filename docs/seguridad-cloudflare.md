@@ -71,8 +71,12 @@ default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; fram
 **CSP público** (una sola línea — incluye Meta Pixel y analítica):
 
 ```
-default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests; script-src 'self' https://cdn.jsdelivr.net https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://fodwjfiyfmscklqsqrip.supabase.co https://*.fbcdn.net https://www.facebook.com; connect-src 'self' https://cdn.jsdelivr.net https://fodwjfiyfmscklqsqrip.supabase.co wss://fodwjfiyfmscklqsqrip.supabase.co https://cloudflareinsights.com https://www.facebook.com; frame-src 'none'
+default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests; script-src 'self' https://cdn.jsdelivr.net https://connect.facebook.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://fodwjfiyfmscklqsqrip.supabase.co https://*.fbcdn.net https://www.facebook.com; media-src 'self' https://fodwjfiyfmscklqsqrip.supabase.co; connect-src 'self' https://cdn.jsdelivr.net https://fodwjfiyfmscklqsqrip.supabase.co wss://fodwjfiyfmscklqsqrip.supabase.co https://cloudflareinsights.com https://www.facebook.com; frame-src 'none'
 ```
+
+> `media-src` se agregó para permitir los videos de producto autoalojados en Supabase Storage
+> (bucket `product-videos`, sección "Aprende sobre tus suplementos" de la home). Sin esto el
+> navegador cae a `default-src 'self'` y bloquea la carga de los `<video>`.
 
 ### Desplegar la CSP con red de seguridad (Report-Only primero)
 
@@ -139,7 +143,7 @@ Al estar el sitio proxied por Cloudflare, no hace falta pegar ningún script: Cl
 **inyectar el beacon automáticamente**.
 
 1. **Cloudflare → Analytics & Logs → Web Analytics → Add a site / Enable.**
-2. Elegí el sitio `javysuplementos.com` y activá **Automatic Setup** (inyección automática).
+2. Elige el sitio `javysuplementos.com` y activa **Automatic Setup** (inyección automática).
 3. La CSP ya permite `static.cloudflareinsights.com` (script) y `cloudflareinsights.com` (beacon),
    así que no se rompe nada.
 
@@ -159,8 +163,17 @@ y preservando los parámetros de consulta:
 | `/categoria/iso-aislada/` | `/categoria/proteinas/` |
 | `/categoria/mass-gainer/` | `/categoria/proteinas/` |
 | `/categoria/ganadores-de-peso/` | `/categoria/proteinas/` |
-| `/categoria/pre-entrenos/` | `/categoria/pre-entrenos-y-energia/` |
-| `/categoria/energia-y-rendimiento/` | `/categoria/pre-entrenos-y-energia/` |
+| `/categoria/energia-y-rendimiento/` | `/categoria/pre-entrenos/` |
+| `/categoria/pre-entrenos-y-energia/` | `/categoria/pre-entrenos/` |
+
+> **Cambio del 2026-09-06 — hay que EDITAR reglas ya existentes, no solo agregar.**
+> La familia volvió a llamarse **Pre-entrenos**, así que los dos sentidos se invirtieron:
+>
+> - **BORRAR** la regla `/categoria/pre-entrenos/` → `/categoria/pre-entrenos-y-energia/`.
+>   `/categoria/pre-entrenos/` es hoy una página **real y viva**; esa regla la secuestra, y
+>   encima apunta a una URL que ya no existe (doble falla: 301 a un 404).
+> - **CAMBIAR** el destino de `/categoria/energia-y-rendimiento/` a `/categoria/pre-entrenos/`.
+> - **AGREGAR** `/categoria/pre-entrenos-y-energia/` → `/categoria/pre-entrenos/`.
 
 Las páginas HTML de respaldo mantienen `canonical` y `noindex, follow` por compatibilidad,
 pero la respuesta 301 debe ser la señal principal. Verificar cada regla con una solicitud HEAD
@@ -176,9 +189,20 @@ las categorías retiradas **sí** tienen respaldo en el repo (`LEGACY_CATEGORY_R
 un producto dado de baja **no deja nada**: `generate-pages.mjs` borra `producto/` entero en cada
 corrida y lo regenera desde Supabase, así que su URL pasa directo a 404.
 
-Las de abajo son las 58 fichas dadas de baja entre el 2026-08-28 y el 2026-09-02. Las 58 estaban
-publicadas en `sitemap.xml`, o sea que Google las tiene indexadas. El destino de cada una es la
-categoría que la propia ficha declaraba en su breadcrumb.
+Las de abajo son las fichas dadas de baja que siguen sin página. Todas estuvieron publicadas en
+`sitemap.xml`, o sea que Google las tiene indexadas. El destino de cada una es la categoría que
+la propia ficha declaraba en su breadcrumb.
+
+> **Una regla de esta tabla se BORRA cuando el producto vuelve.** Un producto reactivado en el
+> panel recupera su página `/producto/<slug>/` en la siguiente regeneración, pero si la regla 301
+> sigue viva en Cloudflare **secuestra esa URL** y la página nueva nunca se puede visitar. Pasó de
+> verdad: en la regeneración del 2026-09-06 volvieron **39** de las fichas que estaban en esta
+> tabla, y hubo que quitarlas. Antes de tocar Cloudflare, correr siempre:
+>
+> ```bash
+> grep -oE '/producto/[a-z0-9-]+/' docs/seguridad-cloudflare.md | sed 's#/producto/##; s#/##' \
+>   | sort -u | while read s; do [ -d "producto/$s" ] && echo "BORRAR REGLA: /producto/$s/"; done
+> ```
 
 Crear las reglas en **Cloudflare → Rules → Redirect Rules → Create rule** con estado
 **301 - Permanent Redirect**, preservando los parámetros de consulta. Si son demasiadas para el
@@ -190,76 +214,89 @@ completa de una vez.
 
 | Path de origen (404 hoy) | Destino |
 | --- | --- |
-| `/producto/mutant-bcaa-caps-200-capsulas/` | `/categoria/aminoacidos/` |
-| `/producto/mutant-geaar-420-g/` | `/categoria/aminoacidos/` |
-| `/producto/mutant-glutamine-300-g/` | `/categoria/aminoacidos/` |
-| `/producto/mutant-hardcore-bcaa-390-g/` | `/categoria/aminoacidos/` |
 | `/producto/nutrex-glutamine-300-g-60-servidas/` | `/categoria/aminoacidos/` |
-| `/producto/nutrex-hmb-1000-120-capsulas/` | `/categoria/aminoacidos/` |
-| `/producto/nutricost-l-glutamina-60-servidas/` | `/categoria/aminoacidos/` |
-| `/producto/optimum-nutrition-amino-energy-65-servidas/` | `/categoria/aminoacidos/` |
-| `/producto/optimum-nutrition-essential-amino-energy-30-servidas/` | `/categoria/aminoacidos/` |
-| `/producto/gat-sport-creatina-masticable-5-g/` | `/categoria/creatina/` |
-| `/producto/muscletech-platinum-100-creatina-monohidratada-80-servidas/` | `/categoria/creatina/` |
-| `/producto/mutant-100-pure-creatina-monohidratada-300-g/` | `/categoria/creatina/` |
-| `/producto/mutant-creakong-cx8-249-g/` | `/categoria/creatina/` |
-| `/producto/mutant-creatina-bytz-80-tabletas/` | `/categoria/creatina/` |
-| `/producto/nutrex-creatina-monohidratada-300-g/` | `/categoria/creatina/` |
 | `/producto/nutrex-creatina-para-mujer-327-g/` | `/categoria/creatina/` |
-| `/producto/nutricost-creatina-monohidratada-300-g/` | `/categoria/creatina/` |
-| `/producto/nutricost-creatine-45-servidas-saborizada/` | `/categoria/creatina/` |
 | `/producto/olympus-creatina-para-mujer-30-servidas/` | `/categoria/creatina/` |
-| `/producto/optimum-nutrition-creatina-monohidratada-300-g/` | `/categoria/creatina/` |
-| `/producto/ronnie-coleman-creatina-adventure-20-servidas/` | `/categoria/creatina/` |
-| `/producto/nutrex-anabol-60-capsulas/` | `/categoria/potenciadores-hormonales/` |
 | `/producto/nutrex-t-up-max-60-capsulas/` | `/categoria/potenciadores-hormonales/` |
 | `/producto/nutrex-tribulus-90-capsulas/` | `/categoria/potenciadores-hormonales/` |
-| `/producto/nutricost-dhea-50mg-30-tabletas/` | `/categoria/potenciadores-hormonales/` |
-| `/producto/mutant-all-in-500-g/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/mutant-madness-270-g/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/nutrex-caffeine-200-powder-caps-60-capsulas/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/nutrex-outlift-22-servidas/` | `/categoria/pre-entrenos-y-energia/` |
 | `/producto/nutricost-l-arginine-citruline-120-tabletas/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/nutricost-nitric-oxide-booster-90-tabletas/` | `/categoria/pre-entrenos-y-energia/` |
 | `/producto/raw-nutrition-cbum-essential-30-servidas/` | `/categoria/pre-entrenos-y-energia/` |
 | `/producto/skull-pre-workout-xtreme/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/terror-labz-maniac-extreme-30-servidas/` | `/categoria/pre-entrenos-y-energia/` |
-| `/producto/cellucor-c4-whey-protein-5-lb/` | `/categoria/proteinas/` |
 | `/producto/mutant-hardcore-whey/` | `/categoria/proteinas/` |
 | `/producto/mutant-mass-5-lb/` | `/categoria/proteinas/` |
-| `/producto/mutant-mass-extreme-2500-20-lb/` | `/categoria/proteinas/` |
-| `/producto/mutant-mass-extreme-2500-6-lb/` | `/categoria/proteinas/` |
 | `/producto/mutant-whey-10-lb/` | `/categoria/proteinas/` |
 | `/producto/mutant-whey-cookies-cream-flavor-5-lb/` | `/categoria/proteinas/` |
 | `/producto/mutant-whey-triple-chocolate-flavor-5-lb/` | `/categoria/proteinas/` |
 | `/producto/mutant-whey-vanilla-ice-cream-flavor-5-lb/` | `/categoria/proteinas/` |
-| `/producto/nutricost-casein-protein-71-servidas/` | `/categoria/proteinas/` |
-| `/producto/nutricost-casein-protein-micellar-26-servidas/` | `/categoria/proteinas/` |
-| `/producto/prosupps-whey-concentrate-5-lb/` | `/categoria/proteinas/` |
 | `/producto/prosupps-whey-protein-2-lb/` | `/categoria/proteinas/` |
-| `/producto/terror-labz-brutal-mass-gainer-7-5-lb/` | `/categoria/proteinas/` |
-| `/producto/nutrex-carniburn-fuego/` | `/categoria/quemadores/` |
 | `/producto/nutrex-cla-1000-180-capsulas/` | `/categoria/quemadores/` |
-| `/producto/nutricost-yohimbine-hci-5-30-tabletas/` | `/categoria/quemadores/` |
-| `/producto/prosupps-cla-3000-90-tabletas/` | `/categoria/quemadores/` |
 | `/producto/mutant-big-greens-246-g/` | `/categoria/salud-y-bienestar/` |
-| `/producto/mutant-big-greens-294-g/` | `/categoria/salud-y-bienestar/` |
-| `/producto/mutant-multi-60-capsulas/` | `/categoria/salud-y-bienestar/` |
-| `/producto/nutricost-collagen-peptides-1-lb/` | `/categoria/salud-y-bienestar/` |
 | `/producto/potassium-99-mg-240-capsulas/` | `/categoria/salud-y-bienestar/` |
 | `/producto/primaforce-tudca-500-mg-30-capsulas/` | `/categoria/salud-y-bienestar/` |
+| `/producto/aps-nutrition-mesomorph-pre-workout/` | `/categoria/pre-entrenos/` |
+| `/producto/bsn-syntha-6-4-lb/` | `/categoria/proteinas/` |
+| `/producto/isopure-protein-powder-42-servidas/` | `/categoria/proteinas/` |
+| `/producto/mutant-mass-extreme-2500-12-lb/` | `/categoria/proteinas/` |
+| `/producto/mutant-whey-protein-5-lb/` | `/categoria/proteinas/` |
+| `/producto/nutrex-carniburn-31-servidas/` | `/categoria/quemadores/` |
+| `/producto/nutrex-lipo-6-black-60-capsulas/` | `/categoria/quemadores/` |
+| `/producto/nutricost-casein-5-lb/` | `/categoria/proteinas/` |
+| `/producto/nutricost-performance-creatina-monohidratada-44-servidas/` | `/categoria/creatina/` |
+| `/producto/olympus-creatine-60-servidas/` | `/categoria/creatina/` |
+| `/producto/optimum-nutrition-whey-gourmet-series-24-servidas/` | `/categoria/proteinas/` |
+| `/producto/ronnie-coleman-creatina-adventure-60-servidas/` | `/categoria/creatina/` |
 
 Verificar cada regla con una solicitud HEAD después de publicarla:
 
 ```bash
-curl -sI https://javysuplementos.com/producto/mutant-glutamine-300-g/ | head -1
+curl -sI https://javysuplementos.com/producto/nutrex-glutamine-300-g-60-servidas/ | head -1
 # esperado: HTTP/2 301
-curl -sI https://javysuplementos.com/producto/mutant-glutamine-300-g/ | grep -i location
+curl -sI https://javysuplementos.com/producto/nutrex-glutamine-300-g-60-servidas/ | grep -i location
 # esperado: location: /categoria/aminoacidos/
 ```
 
 **Cada vez que se den de baja más productos hay que ampliar esta tabla.** El paso está
 documentado en el `README.md`, en la sección de `generate-pages.mjs`.
+
+---
+
+## 2.8 — Redirección del catálogo a /catalogo/
+
+El catálogo dejó de ser `supplements-page.html` en la raíz y pasó a la carpeta física
+`catalogo/index.html`, servida en `/catalogo/`. Era la URL con más peso SEO del sitio
+(prioridad 0.9 en el sitemap), así que el 301 no es opcional.
+
+**Dar de alta esta regla SOLO después de confirmar que `/catalogo/` responde 200 en producción.**
+
+**Cloudflare → Rules → Redirect Rules → Create rule**
+
+| Campo | Valor |
+| --- | --- |
+| Nombre | `Catálogo: /supplements-page.html → /catalogo/` |
+| Expresión | `http.request.uri.path eq "/supplements-page.html"` |
+| Tipo | Static |
+| URL destino | `https://javysuplementos.com/catalogo/` |
+| Código | **301 – Permanent Redirect** |
+| Preserve query string | **ON** |
+
+`Preserve query string` en ON es imprescindible: los enlaces profundos con filtro
+(`?fam=`, `?cat=`, `?obj=`, `?marca=`) están repartidos por la home y por los chips de
+cada página de categoría. Sin eso, todos caen al catálogo sin filtrar.
+
+No hace falta regla para `/catalogo` sin barra final: GitHub Pages ya emite ese 301.
+
+Mientras la regla no exista, `supplements-page.html` queda como página puente con
+`noindex, follow`, `canonical` a `/catalogo/` y `/js/redir-catalogo.js` (externo, porque la
+CSP no permite scripts inline) que redirige conservando el query string. Es red de
+seguridad, no reemplazo del 301.
+
+Verificación:
+
+```bash
+curl -sI https://javysuplementos.com/catalogo/ | head -1
+curl -sI https://javysuplementos.com/supplements-page.html | grep -iE "^HTTP|location"
+curl -sI "https://javysuplementos.com/supplements-page.html?fam=proteinas" | grep -i location
+```
 
 ---
 

@@ -27,7 +27,6 @@
 /* Mismo motivo que arriba: los enlaces del footer saltan a estas secciones y el
    header sticky les tapaba el título. */
 #productos,
-#combos,
 #educacion {
   scroll-margin-top: 112px;
 }
@@ -355,3 +354,68 @@
     transform: none;
   }
 }
+
+/* ===== Así compras (3 pasos) =====
+   Explica que el pedido se cierra por WhatsApp y que acá no se paga. Mismo
+   patrón que .about-process de contacto.html, con clases propias porque la
+   home no carga css/pages/contacto.css. */
+.home-steps {
+  margin-top: var(--section-gap);
+  padding: 0 clamp(16px, 4vw, 32px);
+}
+
+.home-steps__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 22px);
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.home-steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+}
+
+.home-steps__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.home-steps__item h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.home-steps__item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .home-steps__list {
+    grid-template-columns: 1fr;
+  }
+}
+

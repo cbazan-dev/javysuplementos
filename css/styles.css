@@ -5,6 +5,25 @@
   box-sizing: border-box;
 }
 
+/* El atributo [hidden] de HTML es `display: none` con especificidad 0-0-0, así
+   que CUALQUIER regla que fije display le gana y el elemento sigue a la vista
+   aunque el JS lo haya ocultado. Pasó de verdad: la línea "Domicilio $4.00" no
+   se iba de la cotización al cambiar a Retiro, el badge de visitas del hero se
+   veía vacío, y el "Subtotal" aparecía con la cotización vacía.
+
+   Se venía parchando caso por caso (hay reglas `.algo[hidden]` sueltas en
+   cards.css, supplements.css, cart.css y product.css). Esta regla lo resuelve
+   de raíz y evita el próximo. Es la misma que el panel admin ya tiene en
+   css/admin-dashboard.css.
+
+   El !important es seguro acá: se auditaron todas las reglas [hidden] del
+   proyecto y ninguna intenta MOSTRAR un elemento oculto; todas ocultan.
+   Para mostrar/ocultar desde JS: el.hidden = true/false, nunca style.display. */
+[hidden] {
+  display: none !important;
+}
+
+
 
 /* Los tokens (colores, superficies, footer, radios, espaciado) viven en
    css/tokens.css, que se carga después de este archivo y es la fuente única
@@ -182,10 +201,7 @@ body {
 
 .reel-card__preview {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 8px;
+  display: block;
   width: 100%;
   /* Proporción real de un reel (9:16) en vez de una altura fija: antes eran
      520px sin importar el ancho de la card, que en mobile (1 columna) se
@@ -193,45 +209,8 @@ body {
   aspect-ratio: 9 / 16;
   overflow: hidden;
   border-radius: 14px;
-  background:
-    radial-gradient(circle at 50% 20%, rgba(90, 180, 233, 0.28), transparent 55%),
-    linear-gradient(145deg, rgba(0, 220, 109, 0.14), transparent 56%),
-    var(--bg-1);
-  color: var(--text);
-  padding: clamp(18px, 3vw, 28px);
-  text-decoration: none;
-}
-
-.reel-card__preview::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  border-radius: inherit;
-}
-
-.reel-card__preview span {
-  position: relative;
-  color: var(--muted);
-  font-size: 0.84rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.reel-card__preview strong {
-  position: relative;
-  color: var(--accent);
-  font-size: clamp(1rem, 2vw, 1.2rem);
-}
-
-.reel-card__preview:hover,
-.reel-card__preview:focus-visible {
-  background:
-    radial-gradient(circle at 50% 20%, rgba(90, 180, 233, 0.38), transparent 55%),
-    linear-gradient(145deg, rgba(0, 220, 109, 0.24), transparent 56%),
-    var(--bg-1);
+  background: var(--bg-1);
+  object-fit: cover;
 }
 
 .reel-card__preview:focus-visible {
@@ -599,6 +578,62 @@ body {
    de categoría (pill, --surface-input, --line) y no un widget nuevo. Arranca
    en opacity:0 y solo pasa a --in cuando js/hero-visits.js confirma un número
    real -- nunca se anima un placeholder inventado. */
+/* Sin esto el display:flex de abajo le gana al [hidden] (que es display:none
+   con especificidad 0-0-0) y el badge se ve vacío mientras js/hero-visits.js
+   todavía no tiene el número, que es justo lo que el HTML dice que quiere
+   evitar. */
+/* Barra de confianza del hero. Chips sobrios: acompañan al CTA, no compiten
+   con él. En mobile se envuelven en vez de recortarse. */
+.hero__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__trust li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* La viñeta es decorativa: no aporta nada a un lector de pantalla y, sin
+   aria-hidden en un ::before, tampoco lo molesta. */
+.hero__trust li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand, var(--accent));
+  flex: 0 0 auto;
+}
+
+@media (max-width: 520px) {
+  .hero__trust {
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  .hero__trust li {
+    padding: 6px 11px;
+    font-size: 0.78rem;
+  }
+}
+
+.hero__visits[hidden] {
+  display: none;
+}
+
 .hero__visits {
   display: inline-flex;
   align-items: center;

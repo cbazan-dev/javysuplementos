@@ -6,7 +6,7 @@
    (is_staff / can_write / can_manage_users). Si alguien esquiva la UI, la base
    de datos lo frena igual.
    ============================================================================ */
-import { state } from "./state.js?v=adm-3ae53034";
+import { state } from "./state.js?v=adm-f1bd090d";
 
 export const ROLES = [
   { value: "admin",  label: "Admin",  hint: "Acceso total, incluida la gestión de usuarios" },
@@ -27,3 +27,8 @@ export const canWrite = () => state.role === "admin" || state.role === "editor";
 
 // Solo Admin: crea, edita y elimina usuarios del panel.
 export const canManageUsers = () => state.role === "admin";
+
+// Solo Admin: edita los precios internos (revendedor y Javy). Todo el equipo
+// los VE —son datos de trabajo—, pero cambiarlos queda en manos del dueño.
+// Espeja public.can_manage_pricing() de Postgres, que es quien decide de verdad.
+export const canManagePricing = () => state.role === "admin";
