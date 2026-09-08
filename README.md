@@ -132,7 +132,7 @@ contenido de los módulos: si el panel cambió, el token cambia y la caché baja
 /img                   /products, /images, /icons, /testimonials (preferir .webp)
 /scripts               estado-ramas.sh, guardar.sh (flujo de git)
 /supabase/schema.sql   esquema de la base de datos
-/supabase/migrations   migraciones incrementales (fase3 … fase9-roles)
+/supabase/migrations   migraciones incrementales (fase3 … fase12-precios)
 /supabase/functions    Edge Functions (admin-users: crear/eliminar usuarios del panel)
 /Editables/nav.html    markup del nav compartido
 ```
@@ -275,6 +275,10 @@ Hay tres roles, guardados en `admin_profiles.role`:
 | Editor | `editor` | Catálogo completo (productos, categorías, inicio). No toca usuarios. |
 | Lector | `viewer` | Solo consulta. Entra al panel y ve todo, pero no modifica nada. |
 
+La Fase 12 suma `can_manage_pricing()` (solo Admin), que gobierna los precios internos. Es idéntica
+a `can_manage_users()` pero con nombre propio, justamente para no repetir el enredo de `is_admin()`:
+**una función por permiso, con el nombre de lo que permite.**
+
 Tres funciones de Postgres deciden el permiso (`supabase/migrations/fase9-roles.sql`):
 `is_staff()` (cualquier perfil activo), `can_write()` (Admin + Editor) y `can_manage_users()`
 (solo Admin). ⚠️ **`is_admin()` quedó como alias de `can_write()`**, no significa "es
@@ -293,10 +297,45 @@ un sitio estático. Por eso existe la **Edge Function `admin-users`**
 Supabase sola. Cambiar la **propia** contraseña no pasa por ahí (lo hace el chip de usuario de la
 esquina superior derecha con `auth.updateUser`).
 
-El panel cubre: Dashboard, Productos, Sabores/variantes, Inicio (curación del home), Categorías,
-Accesos y Ajustes, más el **drawer de edición de producto**. Filtros de revisión:
+El panel cubre: Dashboard, Productos, **Precios**, Sabores/variantes, Inicio (curación del home),
+Categorías, Accesos y Ajustes, más el **drawer de edición de producto**. Filtros de revisión:
 sin imagen, sin sabor, faltan sabores, sin sabores activos, revisar tipo de sabor, no disponibles,
 precio vacío, destacados.
+
+### Precios (los tres precios de cada producto)
+
+Cada producto tiene un **precio de venta** (`products.price`, el que ve el cliente) y, desde la
+Fase 12, dos **precios internos** que la tienda nunca muestra:
+
+| Precio | Dónde vive | Quién lo ve |
+|---|---|---|
+| Venta | `products.price` | Público. Con `old_price` mayor, se pinta como oferta. |
+| Revendedor | `product_pricing.reseller_price` | Solo el panel. |
+| Javy | `product_pricing.javy_price` | Solo el panel. |
+
+Los internos **pueden estar vacíos** (`null` = "sin asignar", distinto de `0`) y no afectan en nada
+a la oferta: esa sigue siendo `price > 0 && old_price > price`, igual que siempre.
+
+La sección **Precios** (`js/admin/sections/pricing.js`) los muestra en una tabla editable: se filtra
+por lo que falta (*Sin revendedor*, *Sin Javy*, *Sin ninguno*), se teclean varios y se guardan todos
+juntos. Nada viaja hasta pulsar *Guardar*, y solo se envían los campos realmente modificados, así
+que editar un producto no pisa precios que no se tocaron. También se editan uno a uno desde la
+sección *"Precio y oferta"* del drawer.
+
+Escribe con `setProductPricing(id, { price, oldPrice, resellerPrice, javyPrice })` en `js/db.js`:
+cada campo es opcional y `undefined` significa **no tocar**. Los precios internos van a su propia
+tabla, así que cambiarlos no mueve `products.updated_at`.
+
+**Permisos:** todo el equipo los ve; solo **Admin** los edita (`can_manage_pricing()` en Postgres,
+`canManagePricing()` en `js/admin/permissions.js`).
+
+Si la migración `fase12-precios.sql` no está aplicada, `state.pricingSupported` queda en `false`:
+la sección lo avisa y el resto del panel funciona igual.
+
+En **Ajustes → Informes**, la *Lista de precios* deja elegir con casillas qué precios incluir. La
+tabla en pantalla suma una columna por precio; en el PDF (formato catálogo) el primero que se pidió
+va como precio destacado y los demás, rotulados, en la línea de detalle. Los que no estén asignados
+salen como `—`, y si el informe lleva precios internos el propio documento lo advierte.
 
 ---
 
@@ -304,6 +343,10 @@ precio vacío, destacados.
 
 - `products` — catálogo (tiene columnas redundantes: `name`/`nombre`, `price`/`precio_centavos`).
 - `product_flavors` — sabores/variantes de cada producto, con disponibilidad individual.
+- `product_pricing` — precios internos (revendedor y Javy), uno por producto. Va **aparte de
+  `products`** a propósito: la política de lectura de `products` es pública, así que una columna
+  ahí sería legible con la clave publishable. Esta tabla no le da acceso a `anon`: leer requiere
+  `is_staff()` y escribir `can_manage_pricing()` (solo Admin). Migración: `fase12-precios.sql`.
 - `categories` — categorías y tipos (Proteínas, Creatinas, Pre-entrenos, etc.).
 - `admin_profiles` — usuarios del panel: vincula la cuenta de Auth con su rol
   (`admin` / `editor` / `viewer`), su nombre visible y si tiene el acceso activo. Un trigger

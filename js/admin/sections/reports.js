@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-e13e4fa5";
-import { esc, ico, peso, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-e13e4fa5";
-import { paint } from "../view.js?v=adm-e13e4fa5";
-import { toast } from "../ui.js?v=adm-e13e4fa5";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-e13e4fa5";
+import { state, catById, families, typesOf } from "../state.js?v=adm-ee26d7ee";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-ee26d7ee";
+import { paint } from "../view.js?v=adm-ee26d7ee";
+import { toast } from "../ui.js?v=adm-ee26d7ee";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-ee26d7ee";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -16,7 +16,7 @@ export function renderReportsTab(container) {
     </div>
     ${cardMedida()}
     <div class="ad-rep-grid">
-      ${card("precios", "file-text", "Lista de precios", "Todos los productos con su precio actual, oferta y estado.")}
+      ${cardPrecios()}
       ${card("stock", "package", "Stock: agotados", "Productos agotados o no disponibles y desde cuándo.")}
       ${card("ofertas", "tags", "Ofertas y descuentos", "Productos en oferta: precio anterior, nuevo y % de descuento.")}
       ${cardActividad()}
@@ -27,6 +27,15 @@ export function renderReportsTab(container) {
   container.querySelectorAll("[data-rep]").forEach((btn) => {
     btn.addEventListener("click", () => onGenerate(container, btn.getAttribute("data-rep")));
   });
+
+  // Sin ningún precio marcado no hay informe que generar.
+  const boxes = [...container.querySelectorAll("[data-rep-price]")];
+  const generar = container.querySelector('[data-rep="precios"]');
+  const syncPrecios = () => {
+    if (generar) generar.disabled = !boxes.some((b) => b.checked);
+  };
+  boxes.forEach((b) => b.addEventListener("change", syncPrecios));
+  syncPrecios();
 
   // Contador en vivo: saber cuántos productos entran ANTES de generar evita el
   // ida y vuelta de armar un PDF para descubrir que quedó vacío.
@@ -184,6 +193,35 @@ function card(key, icon, title, desc) {
   </div>`;
 }
 
+/* Igual que cardActividad, pero con casillas: el mismo informe sirve para la
+   lista pública, la de revendedor o una combinada. Los precios internos solo se
+   ofrecen si la migración fase12 está aplicada. */
+function cardPrecios() {
+  const opt = (key, label, checked) => `
+    <label class="ad-rep-opt">
+      <input type="checkbox" data-rep-price="${key}"${checked ? " checked" : ""} />
+      <span>${esc(label)}</span>
+    </label>`;
+  return `<div class="ad-rep-card">
+    <span class="ad-rep-card__icon">${ico("file-text")}</span>
+    <h3>Lista de precios</h3>
+    <p>Todos los productos con su precio, oferta y estado. Elige qué precios incluir.</p>
+    <div class="ad-rep-opts" role="group" aria-label="Precios a incluir">
+      ${opt("venta", "Precio de venta", true)}
+      ${state.pricingSupported ? opt("revendedor", "Precio revendedor", false) : ""}
+      ${state.pricingSupported ? opt("javy", "Precio Javy", false) : ""}
+    </div>
+    <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-rep="precios">${ico("file-text")}Generar</button>
+  </div>`;
+}
+
+/* Qué precios pidió el admin. Venta viene marcado por defecto: es el informe
+   que ya existía antes de que hubiera precios internos. */
+function preciosSeleccionados(container) {
+  const on = (key) => !!container.querySelector(`[data-rep-price="${key}"]`)?.checked;
+  return { venta: on("venta"), revendedor: on("revendedor"), javy: on("javy") };
+}
+
 function cardActividad() {
   return `<div class="ad-rep-card">
     <span class="ad-rep-card__icon">${ico("clock")}</span>
@@ -205,7 +243,7 @@ async function onGenerate(container, key) {
   let rep;
   try {
     if (key === "medida") rep = repMedida(leerFiltros(container));
-    else if (key === "precios") rep = repPrecios();
+    else if (key === "precios") rep = repPrecios(preciosSeleccionados(container));
     else if (key === "stock") rep = repStock();
     else if (key === "ofertas") rep = repOfertas();
     else if (key === "actividad") rep = await repActividad(Number(container.querySelector("[data-rep-period]")?.value || 30));
@@ -232,28 +270,74 @@ function familyLabel(p) {
 
 // Datos exclusivos de PDF/impresión. La tabla visible no cambia de orden ni
 // columnas; el catálogo se agrupa por categoría principal solamente al exportar.
-function pdfCatalogItems(products, detail = () => "") {
+// `price` permite que un informe muestre otro precio como destacado (la lista
+// de precios lo usa cuando el admin pide solo revendedor o solo Javy).
+function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.price)) {
   return products.map((p) => ({
     name: p.name || "—",
     brand: p.brand || "",
     category: familyLabel(p),
-    price: peso(p.price),
+    price: price(p),
     detail: detail(p),
     image: p.image || "",
   }));
 }
 
-function repPrecios() {
-  const products = state.products.slice();
-  const rows = products
-    .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"))
-    .map((p) => [p.name || "—", categoryLabel(p), p.presentation || "—", peso(p.price), hasOffer(p) ? peso(p.old_price) : "—", isAvailable(p) ? "Disponible" : "Agotado"]);
+/* `sel` decide qué precios salen. Las columnas de identificación y el estado van
+   siempre; "Antes (oferta)" solo acompaña al precio de venta, porque sin él un
+   precio tachado no dice nada.
+
+   Los precios sin asignar salen como "—", igual que la columna de oferta cuando
+   no hay oferta: en una tabla un hueco en blanco se lee como un fallo de
+   generación, y "$0" sería directamente un dato falso.
+
+   En el PDF (formato catálogo) el precio grande es el primero que se pidió y los
+   demás van en la línea de detalle, para no romper ese diseño. */
+function repPrecios(sel = { venta: true, revendedor: false, javy: false }) {
+  const products = state.products.slice()
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"));
+
+  const columns = ["Producto", "Categoría", "Presentación"];
+  if (sel.venta) columns.push("Precio", "Antes (oferta)");
+  if (sel.revendedor) columns.push("Revendedor");
+  if (sel.javy) columns.push("Javy");
+  columns.push("Estado");
+
+  const rows = products.map((p) => {
+    const row = [p.name || "—", categoryLabel(p), p.presentation || "—"];
+    if (sel.venta) row.push(peso(p.price), hasOffer(p) ? peso(p.old_price) : "—");
+    if (sel.revendedor) row.push(pesoOpt(p.reseller_price));
+    if (sel.javy) row.push(pesoOpt(p.javy_price));
+    row.push(isAvailable(p) ? "Disponible" : "Agotado");
+    return row;
+  });
+
+  // En el PDF el primero que se pidió es el precio destacado; los demás van
+  // rotulados en la línea de detalle, para que nadie confunda uno con otro.
+  const elegidos = [
+    sel.venta && { label: "Venta", value: (p) => peso(p.price) },
+    sel.revendedor && { label: "Revendedor", value: (p) => pesoOpt(p.reseller_price) },
+    sel.javy && { label: "Javy", value: (p) => pesoOpt(p.javy_price) },
+  ].filter(Boolean);
+  const principal = (p) => elegidos[0].value(p);
+  const detalle = (p) => elegidos.slice(1).map((e) => `${e.label} ${e.value(p)}`).join(" · ");
+
+  const partes = [sel.venta && "venta", sel.revendedor && "revendedor", sel.javy && "Javy"].filter(Boolean);
+  const interno = sel.revendedor || sel.javy;
+
   return {
-    title: "Lista de precios actuales",
-    columns: ["Producto", "Categoría", "Presentación", "Precio", "Antes (oferta)", "Estado"],
+    // Con solo el precio de venta conserva el nombre de siempre, así que el
+    // archivo que ya se venía generando no cambia de nombre.
+    title: partes.length === 1 && sel.venta ? "Lista de precios actuales" : `Lista de precios — ${partes.join(", ")}`,
+    columns,
     rows,
-    pdf: { products: pdfCatalogItems(products) },
+    // Este PDF se comparte por WhatsApp desde el celular: si lleva precios que
+    // no son públicos, el propio documento tiene que decirlo.
+    metaExtra: interno ? "Uso interno — contiene precios que no se publican en la tienda" : "",
+    pdf: {
+      products: pdfCatalogItems(products, detalle, principal),
+      detailLabel: interno ? "Otros precios" : "",
+    },
   };
 }
 
@@ -309,7 +393,8 @@ async function repActividad(days) {
 
 /* ----------------------------- render del resultado ----------------------------- */
 function renderResult(result, rep) {
-  const meta = `Generado el ${new Date().toLocaleString("es")} · ${rep.rows.length} ${rep.rows.length === 1 ? "registro" : "registros"}`;
+  const meta = `Generado el ${new Date().toLocaleString("es")} · ${rep.rows.length} ${rep.rows.length === 1 ? "registro" : "registros"}`
+    + (rep.metaExtra ? ` · ${rep.metaExtra}` : "");
 
   if (!rep.rows.length) {
     paint(result, `<div class="ad-panel">

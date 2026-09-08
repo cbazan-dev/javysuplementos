@@ -1,11 +1,11 @@
 /* ============================================================================
    Sección Dashboard: stats, centro de operaciones y últimos agregados.
    ============================================================================ */
-import { state } from "../state.js?v=adm-e13e4fa5";
-import { STALE_DAYS, HOME_MAX, HOME_MIN } from "../config.js?v=adm-e13e4fa5";
-import { $, esc, ico, imgTag, peso, isAvailable, isMissingImage, hasOffer, discountPct, daysSince, agoLabel } from "../helpers.js?v=adm-e13e4fa5";
-import { setView } from "../view.js?v=adm-e13e4fa5";
-import { go, bindEditClicks } from "../shell.js?v=adm-e13e4fa5";
+import { state } from "../state.js?v=adm-ee26d7ee";
+import { STALE_DAYS, HOME_MAX, HOME_MIN } from "../config.js?v=adm-ee26d7ee";
+import { $, esc, ico, imgTag, peso, isAvailable, isMissingImage, hasOffer, discountPct, daysSince, agoLabel, missingInternalPrices } from "../helpers.js?v=adm-ee26d7ee";
+import { setView } from "../view.js?v=adm-ee26d7ee";
+import { go, bindEditClicks } from "../shell.js?v=adm-ee26d7ee";
 
 export function renderDashboard() {
   const p = state.products;
@@ -15,6 +15,10 @@ export function renderDashboard() {
   const out = p.filter((x) => !isAvailable(x));
   const stale = out.filter((x) => daysSince(x.updated_at) >= STALE_DAYS);
   const noImg = p.filter(isMissingImage).length;
+  // Productos a los que les falta algún precio interno (Fase 12).
+  const sinPrecioInterno = state.pricingSupported
+    ? p.filter((x) => { const m = missingInternalPrices(x); return m.reseller || m.javy; }).length
+    : 0;
 
   const stats = [
     { key: "products", label: "Productos activos", value: activeCount, tone: "ok", icon: "layout-dashboard",
@@ -28,6 +32,17 @@ export function renderDashboard() {
     { key: "noimg", label: "Sin imagen", value: noImg, tone: noImg ? "bad" : "ok", icon: "upload",
       delta: noImg ? "faltan fotos" : "todas con foto", dir: noImg ? "down" : "flat" },
   ];
+
+  // Solo si la migración fase12 está aplicada: sin ella el dato no existe y la
+  // tarjeta mentiría diciendo que no falta nada.
+  if (state.pricingSupported) {
+    stats.push({
+      key: "pricing", label: "Sin precio interno", value: sinPrecioInterno,
+      tone: sinPrecioInterno ? "bad" : "ok", icon: "grid",
+      delta: sinPrecioInterno ? "revendedor o Javy" : "todos asignados",
+      dir: sinPrecioInterno ? "down" : "flat",
+    });
+  }
 
   const statCard = (s) => {
     const dirIcon = s.dir === "up" ? "arrow-up" : s.dir === "down" ? "arrow-down" : "clock";
@@ -96,6 +111,7 @@ export function renderDashboard() {
   view.querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => {
     const k = b.getAttribute("data-stat");
     if (k === "home") return go("home");
+    if (k === "pricing") return go("pricing");
     if (k === "offers") { state.productFilter = "offers"; return go("products"); }
     if (k === "out") { state.productFilter = "out"; return go("products"); }
     if (k === "noimg") { state.productFilter = "noimg"; return go("products"); }

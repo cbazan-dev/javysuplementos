@@ -3,13 +3,14 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-e13e4fa5";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-e13e4fa5";
-import { $, esc, ico } from "../helpers.js?v=adm-e13e4fa5";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-e13e4fa5";
-import { requestRerender } from "../shell.js?v=adm-e13e4fa5";
-import { reloadProducts } from "../data.js?v=adm-e13e4fa5";
-import { openImageCropper } from "../image-cropper.js?v=adm-e13e4fa5";
+import { state, catById, families, typesOf } from "../state.js?v=adm-ee26d7ee";
+import { canManagePricing } from "../permissions.js?v=adm-ee26d7ee";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-ee26d7ee";
+import { $, esc, ico } from "../helpers.js?v=adm-ee26d7ee";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
+import { requestRerender } from "../shell.js?v=adm-ee26d7ee";
+import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
+import { openImageCropper } from "../image-cropper.js?v=adm-ee26d7ee";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
@@ -51,6 +52,10 @@ export function openProductDrawer(product, opts = {}) {
     presentation: product ? product.presentation || "" : "",
     price: product && product.price ? String(product.price) : "",
     old_price: product && product.old_price ? String(product.old_price) : "",
+    // Internos (Fase 12). Se comparan con != null, no por verdadero: un precio
+    // en 0 es un valor asignado y no debe abrirse como si estuviera vacío.
+    reseller_price: product && product.reseller_price != null ? String(product.reseller_price) : "",
+    javy_price: product && product.javy_price != null ? String(product.javy_price) : "",
     image: product ? (product.stored_image_url || product.image || "") : "",
     description_short: product ? product.description_short || "" : "",
     description_long: product ? product.description_long || "" : "",
@@ -113,6 +118,22 @@ export function openProductDrawer(product, opts = {}) {
   }
 
   // Secciones del modal: [key, número, etiqueta corta (índice), título largo (encabezado)].
+  /* Precios internos (Fase 12). Van en la misma sección que el precio de venta
+     —es donde el admin los busca— pero separados y rotulados, porque no son
+     públicos y no tocan la oferta. Si la migración no está aplicada, el bloque
+     ni aparece. Editarlos es cosa de Admin; el resto del equipo los ve. */
+  const canEditPricing = canManagePricing() && state.pricingSupported;
+  const internalPricesHTML = !state.pricingSupported ? "" : `
+    <div class="ad-subgroup">
+      <p class="ad-subgroup__title">Precios internos</p>
+      <p class="ad-subgroup__hint">No se muestran en la tienda ni afectan la oferta. Pueden quedar vacíos y cargarse después desde la sección Precios.</p>
+      <div class="ad-form-grid">
+        ${field("Precio revendedor", false, affix(`<input class="ad-input" inputmode="decimal" data-f="reseller_price" value="${esc(data.reseller_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "reseller_price")}
+        ${field("Precio Javy", false, affix(`<input class="ad-input" inputmode="decimal" data-f="javy_price" value="${esc(data.javy_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "javy_price")}
+      </div>
+      ${canEditPricing ? "" : `<span class="ad-field__help">Solo un Admin puede modificarlos.</span>`}
+    </div>`;
+
   const SECS = [
     ["esencial", 1, "Esencial", "Información esencial"],
     ["precio", 2, "Precio", "Precio y oferta"],
@@ -165,6 +186,7 @@ export function openProductDrawer(product, opts = {}) {
               ${field("Precio anterior", false, affix(`<input class="ad-input" inputmode="decimal" data-f="old_price" value="${esc(data.old_price)}" placeholder="0.00" />`), "old_price", "Para mostrar oferta")}
             </div>
             <span class="ad-pill ad-pill--home" data-offer-pill style="justify-self:start;display:none"></span>
+            ${internalPricesHTML}
           `)}
           ${sec("imagen", `<div data-image-slot></div>`)}
           ${sec("sabores", `
@@ -557,6 +579,19 @@ export function openProductDrawer(product, opts = {}) {
   });
 
   // validation
+  // Los internos son opcionales: vacío es válido. Se acepta la coma decimal
+  // porque es como se teclea acá; db.js hace la misma normalización al guardar.
+  function internalPriceError(name, label) {
+    const el = fEl(name);
+    if (!el) return "";
+    const raw = el.value.trim();
+    if (!raw) return "";
+    const n = Number(raw.replace(",", "."));
+    if (!Number.isFinite(n)) return `${label} no es un número válido`;
+    if (n < 0) return `${label} no puede ser negativo`;
+    return "";
+  }
+
   function errors() {
     const price = fEl("price").value.trim();
     const old = fEl("old_price").value.trim();
@@ -571,18 +606,20 @@ export function openProductDrawer(product, opts = {}) {
         : "",
       price: !price ? "El precio es obligatorio" : (isNaN(+price) || +price <= 0) ? "Precio inválido" : "",
       old_price: old && (isNaN(+old) || +old <= +price) ? "Debe ser mayor al precio actual" : "",
+      reseller_price: internalPriceError("reseller_price", "El precio revendedor"),
+      javy_price: internalPriceError("javy_price", "El precio Javy"),
     };
   }
   function validate() {
     const errs = errors();
-    ["name", "family", "type", "price", "old_price"].forEach((k) => {
+    ["name", "family", "type", "price", "old_price", "reseller_price", "javy_price"].forEach((k) => {
       const slot = overlay.querySelector(`[data-err="${k}"]`);
       const input = overlay.querySelector(`[data-f="${k}"]`);
       if (slot) slot.innerHTML = errs[k] ? `${ico("x")}${esc(errs[k])}` : "";
       if (input) input.classList.toggle(input.tagName === "SELECT" ? "ad-select--invalid" : "ad-input--invalid", !!errs[k]);
     });
     // punto rojo en el índice de las secciones con errores
-    const SEC_OF = { name: "esencial", family: "esencial", type: "esencial", price: "precio", old_price: "precio" };
+    const SEC_OF = { name: "esencial", family: "esencial", type: "esencial", price: "precio", old_price: "precio", reseller_price: "precio", javy_price: "precio" };
     const secWithError = {};
     Object.keys(errs).forEach((k) => { if (errs[k]) secWithError[SEC_OF[k]] = true; });
     railItems.forEach((b) => b.classList.toggle("has-error", !!secWithError[b.getAttribute("data-go-sec")]));
@@ -618,6 +655,9 @@ export function openProductDrawer(product, opts = {}) {
           presentation: fEl("presentation").value.trim(),
           price: fEl("price").value.trim(),
           old_price: fEl("old_price").value.trim(),
+          // undefined = el campo no existe (migración sin aplicar) → no tocar.
+          reseller_price: fEl("reseller_price") ? fEl("reseller_price").value.trim() : undefined,
+          javy_price: fEl("javy_price") ? fEl("javy_price").value.trim() : undefined,
           description_short: fEl("description_short").value.trim(),
           description_long: fEl("description_long").value.trim(),
           beneficios: textToLines(fEl("beneficios").value),
@@ -714,10 +754,35 @@ async function saveProduct(ctx) {
   // sincronizar sabores por nombre
   await syncFlavorsOnSave(saved.id, originalFlavors, values.flavors);
 
+  // precios internos: viven en otra tabla, así que van en su propia escritura
+  await saveInternalPrices(saved.id, { isNew, data, values });
+
   await reloadProducts();
   toast({ tone: "ok", msg: isNew ? "Producto creado" : "Cambios guardados", sub: values.name });
   // re-render de la sección activa (equivale al if/else del monolito original)
   requestRerender();
+}
+
+/* Guarda los precios internos SOLO si cambiaron. Sin esta comparación, abrir un
+   producto y guardarlo sin mirar la sección de precios reescribiría lo que otro
+   admin acabara de cargar desde la sección Precios.
+
+   Si falla, no tira abajo el guardado: la ficha ya quedó bien y se avisa. */
+async function saveInternalPrices(productId, { isNew, data, values }) {
+  const payload = {};
+  const changed = (key, apiKey) => {
+    if (values[key] === undefined) return;              // campo ausente: no tocar
+    if (isNew ? values[key] !== "" : values[key] !== data[key]) payload[apiKey] = values[key];
+  };
+  changed("reseller_price", "resellerPrice");
+  changed("javy_price", "javyPrice");
+  if (!Object.keys(payload).length) return;
+
+  try {
+    await window.catalogDb.setProductPricing(productId, payload);
+  } catch (error) {
+    toast({ tone: "err", msg: "El producto se guardó, pero no sus precios internos", sub: error.message || String(error) });
+  }
 }
 
 async function syncFlavorsOnSave(productId, originalFlavors, desiredFlavors) {

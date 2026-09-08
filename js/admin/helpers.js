@@ -2,7 +2,7 @@
    Helpers de bajo nivel: DOM, escape, formato, fechas e imágenes.
    Puros o casi puros; no conocen el estado de la app.
    ============================================================================ */
-import { PLACEHOLDER } from "./config.js?v=adm-e13e4fa5";
+import { PLACEHOLDER } from "./config.js?v=adm-ee26d7ee";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -51,6 +51,27 @@ export function peso(n) {
   const v = Number(n || 0);
   if (!(v > 0)) return "Consultar";
   return "$" + (Number.isInteger(v) ? v : v.toFixed(2).replace(/\.0+$/, ""));
+}
+
+// Precio que puede estar sin asignar (los internos: revendedor y Javy).
+// Distinto de peso(): aquí 0 es un precio real y se muestra como "$0"; lo que
+// no está asignado es null, y se muestra como una raya. Confundir "sin asignar"
+// con "cero" en una lista de precios es justo el error que hay que evitar.
+export function pesoOpt(n) {
+  if (n == null || n === "") return "—";
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  if (v === 0) return "$0";
+  return peso(v);
+}
+
+// ¿Qué precios internos le faltan a este producto? Alimenta los filtros y el
+// contador de la sección Precios.
+export function missingInternalPrices(p) {
+  return {
+    reseller: p.reseller_price == null,
+    javy: p.javy_price == null,
+  };
 }
 
 export function hasOffer(p) {

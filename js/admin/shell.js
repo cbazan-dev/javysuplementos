@@ -5,22 +5,23 @@
    Mantiene un registro key → renderFn; las secciones piden re-render con
    requestRerender() en vez de llamarse entre sí.
    ============================================================================ */
-import { state } from "./state.js?v=adm-e13e4fa5";
-import { NAV } from "./config.js?v=adm-e13e4fa5";
-import { $, $$, esc, ico } from "./helpers.js?v=adm-e13e4fa5";
-import { showViewError } from "./view.js?v=adm-e13e4fa5";
-import { renderDashboard } from "./sections/dashboard.js?v=adm-e13e4fa5";
-import { renderProducts } from "./sections/products.js?v=adm-e13e4fa5";
-import { renderHome } from "./sections/home.js?v=adm-e13e4fa5";
-import { renderCategories } from "./sections/categories.js?v=adm-e13e4fa5";
-import { renderAccess } from "./sections/access.js?v=adm-e13e4fa5";
-import { renderSettings } from "./sections/settings.js?v=adm-e13e4fa5";
-import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-e13e4fa5";
-import { canWrite } from "./permissions.js?v=adm-e13e4fa5";
-import { renderUserChip } from "./user-chip.js?v=adm-e13e4fa5";
+import { state } from "./state.js?v=adm-ee26d7ee";
+import { NAV } from "./config.js?v=adm-ee26d7ee";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-ee26d7ee";
+import { showViewError } from "./view.js?v=adm-ee26d7ee";
+import { renderDashboard } from "./sections/dashboard.js?v=adm-ee26d7ee";
+import { renderProducts } from "./sections/products.js?v=adm-ee26d7ee";
+import { renderPricing } from "./sections/pricing.js?v=adm-ee26d7ee";
+import { renderHome } from "./sections/home.js?v=adm-ee26d7ee";
+import { renderCategories } from "./sections/categories.js?v=adm-ee26d7ee";
+import { renderAccess } from "./sections/access.js?v=adm-ee26d7ee";
+import { renderSettings } from "./sections/settings.js?v=adm-ee26d7ee";
+import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-ee26d7ee";
+import { canWrite } from "./permissions.js?v=adm-ee26d7ee";
+import { renderUserChip } from "./user-chip.js?v=adm-ee26d7ee";
 
 const renderers = {
-  dashboard: renderDashboard, products: renderProducts,
+  dashboard: renderDashboard, products: renderProducts, pricing: renderPricing,
   home: renderHome, categories: renderCategories,
   access: renderAccess, settings: renderSettings,
 };

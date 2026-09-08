@@ -2,13 +2,13 @@
    Sección Productos: barra de búsqueda + filtros (familia + estado) y la
    tabla/cards con acciones por fila.
    ============================================================================ */
-import { state, families, typesOf, catById } from "../state.js?v=adm-e13e4fa5";
-import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-e13e4fa5";
-import { setView } from "../view.js?v=adm-e13e4fa5";
-import { bindEditClicks } from "../shell.js?v=adm-e13e4fa5";
-import { confirmModal, toast } from "../ui.js?v=adm-e13e4fa5";
-import { reloadProducts } from "../data.js?v=adm-e13e4fa5";
-import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-e13e4fa5";
+import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-ee26d7ee";
+import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-ee26d7ee";
+import { setView } from "../view.js?v=adm-ee26d7ee";
+import { bindEditClicks } from "../shell.js?v=adm-ee26d7ee";
+import { confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
+import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
+import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-ee26d7ee";
 
 const STATUS_FILTERS = [
   ["all", "Todos"], ["home", "En inicio"], ["offers", "En oferta"], ["out", "Agotados"], ["noimg", "Sin imagen"],
@@ -16,18 +16,9 @@ const STATUS_FILTERS = [
 ];
 
 // Filtro por categoría (familia) y, si hay, subcategoría (tipo) exacta.
-// "none" = colgado de la familia sin bajar a una subcategoría.
-function matchesCategory(p) {
-  const c = state.productCategory, s = state.productSubcategory;
-  if (c === "all") return true;
-  const cat = catById(p.category_id);
-  if (!cat) return false;
-  const inCat = cat.id === c || cat.parent_id === c;
-  if (!inCat) return false;
-  if (s === "all") return true;
-  if (s === "none") return String(p.category_id) === String(c);
-  return String(p.category_id) === String(s);
-}
+// La lógica vive en state.js porque la comparte con la sección Precios.
+const matchesCategory = (p) =>
+  matchesCategoryFilter(p, state.productCategory, state.productSubcategory);
 
 // Producto asignado a una familia sin bajar a una subcategoría. Es el estado
 // que vacía el segundo nivel del catálogo público.

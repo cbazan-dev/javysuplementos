@@ -30,6 +30,8 @@ export const NAV = [
     subtitle: "Resumen de la tienda y acciones pendientes" },
   { key: "products", label: "Productos", icon: "package", primary: true,
     subtitle: "Gestiona el catálogo, precios y disponibilidad" },
+  { key: "pricing", label: "Precios", icon: "grid", primary: true,
+    subtitle: "Precio de venta, revendedor y Javy de todo el catálogo" },
   { key: "home", label: "Inicio", icon: "home", primary: true,
     subtitle: "Productos destacados en el inicio" },
   { key: "categories", label: "Categorías", icon: "tags", primary: false,

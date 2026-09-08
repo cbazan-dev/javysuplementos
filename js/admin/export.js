@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-e13e4fa5";
+import { esc } from "./helpers.js?v=adm-ee26d7ee";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -163,10 +163,16 @@ export function buildTable(columns, rows, className = "") {
 
 // Arma el PDF del informe y lo devuelve como Blob. Los informes de catálogo
 // pueden pasar products sin cambiar la tabla que se ve en la web.
+// `options.orientation`: "landscape" para informes anchos (la lista de precios
+// con dos o más precios, que en vertical queda apretada). El resto del diseño
+// se adapta solo porque mide con pageSize.getWidth().
 export async function buildReportPDF(title, meta, columns, rows, options = {}) {
   const ns = window.jspdf;
   if (!ns || !ns.jsPDF) throw new Error("No se pudo cargar el generador de PDF. Recarga la página e intenta de nuevo.");
-  const doc = new ns.jsPDF({ unit: "pt", format: "a4" });
+  const doc = new ns.jsPDF({
+    unit: "pt", format: "a4",
+    orientation: options.orientation === "landscape" ? "landscape" : "portrait",
+  });
   const products = options.products || [];
   const logo = await imageData(LOGO_URL, 160);
   if (!logo) throw new Error("No se pudo cargar el logo de Javy para el informe.");
@@ -308,10 +314,11 @@ export function printReport(title, meta, columns, rows, options = {}) {
   const w = window.open("", "_blank");
   if (!w) return false;
   const products = options.products || [];
+  const landscape = options.orientation === "landscape";
   const content = products.length ? printCatalog(products, options.detailLabel) : buildTable(columns, rows);
   const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title>
   <style>
-    @page{size:A4;margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
+    @page{size:A4 ${landscape ? "landscape" : "portrait"};margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
     .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.04em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
     .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;padding-top:3px;padding-bottom:3px;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:center;font-weight:700;white-space:nowrap;}
     .report-footer{position:fixed;bottom:-11mm;left:0;right:0;border-top:1px solid #dce3ea;padding-top:4px;color:#5b6c7d;font-size:8pt;display:flex;justify-content:space-between;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
