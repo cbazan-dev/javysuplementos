@@ -1200,3 +1200,86 @@ body.ad-body { min-height: 100vh; }
   #adminUser { justify-content: flex-end; }
   .ad-user__id strong { max-width: 12ch; }
 }
+
+/* ===================== Precios (Fase 10) ===================================
+   Sección Precios y los campos internos del drawer. Reutiliza .ad-table,
+   .ad-filterbar, .ad-bulkbar e .ad-input-affix; acá solo va lo que faltaba. */
+
+/* Aviso informativo dentro de una sección (migración pendiente, permisos). */
+.ad-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 0 0 14px; padding: 12px 14px;
+  border: 1px solid var(--pb-line); border-radius: var(--ad-radius-sm);
+  background: var(--pb-white-04); color: var(--pb-muted);
+  font-size: 0.86rem; line-height: 1.45;
+}
+.ad-notice .ad-ico { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.ad-notice strong { color: var(--pb-text); }
+.ad-notice code {
+  padding: 1px 5px; border-radius: 5px;
+  background: var(--pb-white-06); font-size: 0.92em;
+}
+.ad-notice--warn { border-color: rgba(255,179,0,0.35); background: var(--pb-amber-tint-12); color: #ffe0a3; }
+.ad-notice--warn .ad-ico { color: var(--ad-amber); }
+
+/* Celda de precio editable dentro de la tabla: el afijo $ ya existe, acá solo
+   se compacta y se le agregan los dos estados que importan. */
+.ad-price-cell { max-width: 132px; }
+.ad-price-cell .ad-input { padding-top: 8px; padding-bottom: 8px; font-weight: 700; }
+/* Modificado y sin guardar: ámbar, el mismo color que ya marca "atención" en el
+   panel (.ad-icon-btn--off, .ad-pill--low). */
+.ad-price-cell.is-dirty .ad-input { border-color: var(--ad-amber); background: var(--pb-amber-tint-12); }
+.ad-price-cell.is-dirty .ad-input-affix__sign, .ad-price-cell.is-dirty .ad-ico { color: var(--ad-amber); }
+.ad-price-cell.is-invalid .ad-input { border-color: var(--ad-red); background: rgba(255,79,118,0.10); }
+
+/* Precio sin asignar: se ve como un hueco, no como un valor. */
+.ad-price-empty { color: var(--pb-muted-2); font-weight: 600; }
+
+.ad-table--pricing { min-width: 880px; }
+.ad-table--pricing td { padding-top: 8px; padding-bottom: 8px; }
+
+/* Barra de cambios sin guardar: misma forma que la de selección, en ámbar
+   porque no es una acción disponible sino trabajo pendiente. */
+.ad-bulkbar--pending { border-color: var(--ad-amber); background: var(--pb-amber-tint-12); }
+.ad-bulkbar--pending .ad-bulkbar__count { color: #ffe0a3; }
+
+/* Cards de precios (móvil). La tabla se oculta en 760px, igual que en Productos. */
+.ad-price-cards { display: none; gap: 12px; }
+.ad-price-card {
+  border: 1px solid var(--pb-line); border-radius: var(--ad-radius);
+  background: linear-gradient(145deg, rgba(17,25,37,0.88), rgba(9,14,20,0.88));
+  padding: 12px; display: grid; gap: 12px;
+}
+.ad-price-card__head { display: grid; grid-template-columns: 56px minmax(0,1fr); gap: 11px; align-items: center; }
+.ad-price-card__head img { width: 56px; height: 56px; border-radius: 10px; object-fit: contain; background: var(--pb-white-06); }
+.ad-price-card__head h3 { font-size: 0.98rem; margin-bottom: 2px; }
+.ad-price-card__head .ad-meta { color: var(--pb-muted); font-size: 0.78rem; margin: 0; }
+.ad-price-card__grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+.ad-price-card__field { display: grid; gap: 5px; min-width: 0; }
+.ad-price-card__label { color: var(--pb-muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
+.ad-price-card__field .ad-price-cell { max-width: none; }
+.ad-price-card__status { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Subgrupo dentro de una sección del drawer (los precios internos). */
+.ad-subgroup {
+  margin-top: 6px; padding: 14px;
+  border: 1px dashed var(--pb-line-strong); border-radius: var(--ad-radius-sm);
+  background: var(--pb-white-04);
+}
+.ad-subgroup__title { font-weight: 800; font-size: 0.86rem; margin: 0 0 2px; }
+.ad-subgroup__hint { color: var(--pb-muted); font-size: 0.8rem; margin: 0 0 12px; line-height: 1.45; }
+
+/* Casillas de "qué precios incluir" en la tarjeta del informe. */
+.ad-rep-opts { display: grid; gap: 6px; margin: 2px 0 4px; }
+.ad-rep-opt { display: flex; align-items: center; gap: 9px; min-height: 34px; cursor: pointer; font-size: 0.86rem; }
+.ad-rep-opt input { width: 16px; height: 16px; accent-color: var(--pb-brand); cursor: pointer; }
+
+@media (max-width: 760px) {
+  .ad-price-cards { display: grid; }
+  /* Los tres precios siguen en fila: apilados, cada producto ocupaba media
+     pantalla y recorrer el catálogo se volvía interminable. */
+  .ad-price-card__grid { gap: 6px; }
+  .ad-price-card__label { font-size: 0.66rem; }
+  .ad-price-card__field .ad-input { padding-left: 22px; padding-right: 6px; }
+  .ad-price-card__field .ad-input-affix__sign { left: 8px; }
+}

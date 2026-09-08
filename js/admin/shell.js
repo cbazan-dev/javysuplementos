@@ -5,23 +5,24 @@
    Mantiene un registro key → renderFn; las secciones piden re-render con
    requestRerender() en vez de llamarse entre sí.
    ============================================================================ */
-import { state } from "./state.js?v=adm-716eeeea";
-import { NAV } from "./config.js?v=adm-716eeeea";
-import { $, $$, esc, ico } from "./helpers.js?v=adm-716eeeea";
-import { showViewError } from "./view.js?v=adm-716eeeea";
-import { renderDashboard } from "./sections/dashboard.js?v=adm-716eeeea";
-import { renderProducts } from "./sections/products.js?v=adm-716eeeea";
-import { renderHome } from "./sections/home.js?v=adm-716eeeea";
-import { renderCategories } from "./sections/categories.js?v=adm-716eeeea";
-import { renderCombos } from "./sections/combos.js?v=adm-716eeeea";
-import { renderAccess } from "./sections/access.js?v=adm-716eeeea";
-import { renderSettings } from "./sections/settings.js?v=adm-716eeeea";
-import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-716eeeea";
-import { canWrite } from "./permissions.js?v=adm-716eeeea";
-import { renderUserChip } from "./user-chip.js?v=adm-716eeeea";
+import { state } from "./state.js?v=adm-7d237d02";
+import { NAV } from "./config.js?v=adm-7d237d02";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-7d237d02";
+import { showViewError } from "./view.js?v=adm-7d237d02";
+import { renderDashboard } from "./sections/dashboard.js?v=adm-7d237d02";
+import { renderProducts } from "./sections/products.js?v=adm-7d237d02";
+import { renderPricing } from "./sections/pricing.js?v=adm-7d237d02";
+import { renderHome } from "./sections/home.js?v=adm-7d237d02";
+import { renderCategories } from "./sections/categories.js?v=adm-7d237d02";
+import { renderCombos } from "./sections/combos.js?v=adm-7d237d02";
+import { renderAccess } from "./sections/access.js?v=adm-7d237d02";
+import { renderSettings } from "./sections/settings.js?v=adm-7d237d02";
+import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-7d237d02";
+import { canWrite } from "./permissions.js?v=adm-7d237d02";
+import { renderUserChip } from "./user-chip.js?v=adm-7d237d02";
 
 const renderers = {
-  dashboard: renderDashboard, products: renderProducts,
+  dashboard: renderDashboard, products: renderProducts, pricing: renderPricing,
   home: renderHome, categories: renderCategories, combos: renderCombos,
   access: renderAccess, settings: renderSettings,
 };

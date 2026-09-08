@@ -55,6 +55,18 @@ const PRODUCT_FLAVORS_FRAGMENT = `
   )
 `;
 
+// Precios internos (Fase 10): revendedor y Javy. Viven en la tabla aparte
+// product_pricing, no en products, porque la politica de lectura de products es
+// publica. Igual que AUDIT_COLS, este fragmento SOLO se agrega al select del
+// admin: product_pricing no le da SELECT a anon, asi que pedirlo desde la web
+// publica haria fallar la consulta entera del catalogo.
+const PRODUCT_PRICING_FRAGMENT = `
+  product_pricing (
+    reseller_price,
+    javy_price
+  )
+`;
+
 const PRODUCT_SELECT = `${PRODUCT_BASE_SELECT}, ${PRODUCT_FLAVORS_FRAGMENT}`;
 const PRODUCT_SELECT_AUDIT = `${PRODUCT_BASE_SELECT}, ${AUDIT_COLS}, ${PRODUCT_FLAVORS_FRAGMENT}`;
 
@@ -181,6 +193,14 @@ function findLocalProductMatch(product = {}) {
   return Object.values(PRODUCTS).find((localProduct) => createSlug(localProduct.nombre || localProduct.name) === productSlug) || null;
 }
 
+// Precio que puede no estar asignado: null y "" son "sin asignar", 0 es un
+// precio real. Number("") daria 0, que aqui significaria algo distinto.
+function toNullablePrice(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function normalizeFlavor(flavor, index = 0) {
   if (typeof flavor === "string") {
     return {
@@ -232,6 +252,12 @@ function normalizeProductFromDb(product) {
   const category = getUsefulText(product.category === "Producto" ? "" : product.category, product.categoria, product.tag) || "Producto";
   const presentation = product.presentation || product.presentacion || "";
   const price = Number(product.price ?? product.precio ?? (product.precio_centavos != null ? product.precio_centavos / 100 : 0));
+  // Precios internos (Fase 10). Llegan por el embed product_pricing, que solo
+  // pide el admin; en la web publica quedan en null y nadie los usa. PostgREST
+  // puede devolver un embed 1:1 como objeto o como arreglo de un elemento.
+  const pricingRow = Array.isArray(product.product_pricing)
+    ? product.product_pricing[0] || null
+    : product.product_pricing || null;
   // Los campos editoriales son manuales: una cadena o arreglo vacío debe seguir
   // vacío, no convertirse en contenido genérico durante la normalización.
   const descriptionText = product.description_long ?? product.description ?? product.descripcion ?? "";
@@ -248,6 +274,9 @@ function normalizeProductFromDb(product) {
     category_id: product.category_id ?? null,
     price,
     old_price: product.old_price == null || product.old_price === "" ? null : Number(product.old_price),
+    // null = sin asignar. No se muestran nunca en la tienda publica.
+    reseller_price: toNullablePrice(pricingRow ? pricingRow.reseller_price : null),
+    javy_price: toNullablePrice(pricingRow ? pricingRow.javy_price : null),
     presentation,
     image,
     image_url: image,
@@ -448,6 +477,24 @@ async function auditStamp(includeCreated = false) {
   return includeCreated ? { created_by: email, updated_by: email } : { updated_by: email };
 }
 
+// ===== Precios internos (Fase 10) =====
+// Existe la tabla product_pricing? Se detecta una vez, igual que auditEnabled().
+// Si la migracion fase10 no se aplico, el panel sigue funcionando sin precios
+// internos en vez de romperse. Devuelve false tambien para quien no tenga
+// permiso de leerla (la politica solo deja a los perfiles activos del panel).
+let pricingTableEnabled;
+async function pricingEnabled() {
+  if (pricingTableEnabled !== undefined) return pricingTableEnabled;
+  if (!hasSupabaseClient()) return (pricingTableEnabled = false);
+  try {
+    const { error } = await supabaseClient.from("product_pricing").select("product_id").limit(1);
+    pricingTableEnabled = !error;
+  } catch (error) {
+    pricingTableEnabled = false;
+  }
+  return pricingTableEnabled;
+}
+
 // ===== Historial de actividad (Fase 6) =====
 // ¿Existe la tabla activity_log? Se detecta una vez. Si la migración fase6 no se
 // aplicó, todo sigue funcionando sin registrar historial.
@@ -520,7 +567,13 @@ async function getProductsWithFlavors(options = {}) {
     try {
       // Las columnas de auditoría (email del editor) sólo se piden en el admin
       // (options.audit), nunca en el catálogo público, para no exponer correos.
-      const productSelect = (options.audit && await auditEnabled()) ? PRODUCT_SELECT_AUDIT : PRODUCT_SELECT;
+      let productSelect = (options.audit && await auditEnabled()) ? PRODUCT_SELECT_AUDIT : PRODUCT_SELECT;
+      // Los precios internos (revendedor/Javy) siguen la misma regla: solo el
+      // admin. anon no tiene permiso sobre product_pricing, asi que pedir el
+      // embed desde la web publica romperia la consulta entera.
+      if (options.audit && await pricingEnabled()) {
+        productSelect += `, ${PRODUCT_PRICING_FRAGMENT}`;
+      }
       // El catálogo público solo ve productos activos. Sin este filtro los
       // borradores se cuelan: `available` se resuelve por
       // `is_available ?? available ?? is_active`, y como los importados traen
@@ -1098,50 +1151,144 @@ async function setProductAvailability(id, available) {
   return result;
 }
 
-// Update parcial de precio: toca SOLO las columnas de precio. No pasa por
+// Convierte lo que escribió el admin en un precio guardable, o tira un error
+// legible. null y "" son "sin asignar"; la coma decimal se acepta porque en
+// Panamá se teclea así y `Number("12,50")` seria NaN.
+function parsePriceOrThrow(value, label) {
+  if (value == null || String(value).trim() === "") return null;
+  const n = Number(String(value).trim().replace(",", "."));
+  if (!Number.isFinite(n)) throw new Error(`${label} no es un número válido.`);
+  if (n < 0) throw new Error(`${label} no puede ser negativo.`);
+  return n;
+}
+
+// Update parcial de precios: toca SOLO lo que se le pasa. No pasa por
 // mapProductToDb, así que no reescribe imagen, slug ni disponibilidad.
-// `oldPrice` undefined = no tocar la oferta; null o "" = quitar la oferta.
-async function setProductPricing(id, { price, oldPrice } = {}) {
+//
+// Cada campo es opcional y `undefined` = "no tocar". null o "" = borrar:
+//   price         → products.price (+ precio_centavos). El precio de venta.
+//   oldPrice      → products.old_price. Borrarlo quita la oferta.
+//   resellerPrice → product_pricing.reseller_price (Fase 10).
+//   javyPrice     → product_pricing.javy_price (Fase 10).
+//
+// Los precios internos viven en otra tabla, así que cambiarlos NO toca la fila
+// del producto: no mueve products.updated_at ni invalida el guard de edición
+// concurrente de quien tenga el drawer abierto en ese momento.
+//
+// Devuelve el producto normalizado si se tocó products; si sólo se tocaron los
+// precios internos, devuelve { id, name, reseller_price, javy_price }.
+async function setProductPricing(id, { price, oldPrice, resellerPrice, javyPrice } = {}) {
   ensureSupabaseForWrite();
-  // Precio anterior, para el texto del historial ("de $50 a $60").
-  let prevPrice = null;
+
+  const touchesPublic = price !== undefined || oldPrice !== undefined;
+  const touchesInternal = resellerPrice !== undefined || javyPrice !== undefined;
+  if (!touchesPublic && !touchesInternal) return null;
+
+  // Estado anterior, para el texto del historial ("de $50 a $60") y el nombre.
+  let prev = null;
   try {
-    const { data: prev } = await supabaseClient.from("products").select("price").eq("id", id).maybeSingle();
-    prevPrice = prev?.price;
+    const { data } = await supabaseClient
+      .from("products")
+      .select("name, price, old_price")
+      .eq("id", id)
+      .maybeSingle();
+    prev = data;
   } catch (_) { /* el historial es opcional */ }
-  const numericPrice = price === "" || price == null ? null : Number(price);
-  if (numericPrice != null && !Number.isFinite(numericPrice)) {
-    throw new Error("El precio no es un número válido.");
-  }
-  const payload = {
-    price: numericPrice,
-    precio_centavos: numericPrice == null ? 0 : Math.round(numericPrice * 100),
-    ...(await auditStamp()),
-  };
-  if (oldPrice !== undefined) {
-    const numericOld = oldPrice === "" || oldPrice == null ? null : Number(oldPrice);
-    if (numericOld != null && !Number.isFinite(numericOld)) {
-      throw new Error("El precio anterior no es un número válido.");
+
+  // Se parsea TODO antes de escribir nada: si un valor es inválido, el producto
+  // no queda a medio actualizar.
+  const parsed = {};
+  if (price !== undefined) parsed.price = parsePriceOrThrow(price, "El precio");
+  if (oldPrice !== undefined) parsed.oldPrice = parsePriceOrThrow(oldPrice, "El precio anterior");
+  if (resellerPrice !== undefined) parsed.resellerPrice = parsePriceOrThrow(resellerPrice, "El precio revendedor");
+  if (javyPrice !== undefined) parsed.javyPrice = parsePriceOrThrow(javyPrice, "El precio Javy");
+
+  const changes = [];
+  let result = null;
+
+  if (touchesPublic) {
+    const payload = { ...(await auditStamp()) };
+    if (price !== undefined) {
+      payload.price = parsed.price;
+      payload.precio_centavos = parsed.price == null ? 0 : Math.round(parsed.price * 100);
     }
-    payload.old_price = numericOld;
+    if (oldPrice !== undefined) payload.old_price = parsed.oldPrice;
+
+    const { data, error } = await supabaseClient
+      .from("products")
+      .update(payload)
+      .eq("id", id)
+      .select(PRODUCT_BASE_SELECT)
+      .single();
+
+    if (error) throw error;
+    result = normalizeProductFromDb(data);
+
+    if (price !== undefined && Number(prev?.price || 0) !== Number(result.price || 0)) {
+      changes.push({ field: "precio", from: priceLabel(prev?.price), to: priceLabel(result.price) });
+    }
+    if (oldPrice !== undefined && Number(prev?.old_price || 0) !== Number(result.old_price || 0)) {
+      changes.push({ field: "oferta", from: priceLabel(prev?.old_price), to: priceLabel(result.old_price) });
+    }
   }
 
-  const { data, error } = await supabaseClient
-    .from("products")
-    .update(payload)
-    .eq("id", id)
-    .select(PRODUCT_BASE_SELECT)
-    .single();
+  let pricingRow = null;
+  if (touchesInternal) {
+    if (!(await pricingEnabled())) {
+      throw new Error("Los precios internos no están disponibles. Falta aplicar la migración fase10-precios.sql.");
+    }
 
-  if (error) throw error;
+    let prevPricing = null;
+    try {
+      const { data } = await supabaseClient
+        .from("product_pricing")
+        .select("reseller_price, javy_price")
+        .eq("product_id", id)
+        .maybeSingle();
+      prevPricing = data;
+    } catch (_) { /* el historial es opcional */ }
+
+    // upsert con SOLO las columnas pedidas: tocar el precio revendedor nunca
+    // borra el de Javy (ni al revés), aunque la fila ya exista.
+    const row = { product_id: id, updated_by: await getCurrentUserEmail() };
+    if (resellerPrice !== undefined) row.reseller_price = parsed.resellerPrice;
+    if (javyPrice !== undefined) row.javy_price = parsed.javyPrice;
+
+    const { data, error } = await supabaseClient
+      .from("product_pricing")
+      .upsert(row, { onConflict: "product_id" })
+      .select("reseller_price, javy_price")
+      .single();
+
+    if (error) throw error;
+    pricingRow = data;
+
+    if (resellerPrice !== undefined && Number(prevPricing?.reseller_price || 0) !== Number(data?.reseller_price || 0)) {
+      changes.push({ field: "precio revendedor", from: priceLabel(prevPricing?.reseller_price), to: priceLabel(data?.reseller_price) });
+    }
+    if (javyPrice !== undefined && Number(prevPricing?.javy_price || 0) !== Number(data?.javy_price || 0)) {
+      changes.push({ field: "precio Javy", from: priceLabel(prevPricing?.javy_price), to: priceLabel(data?.javy_price) });
+    }
+  }
+
   productsCache = null;
-  const result = normalizeProductFromDb(data);
-  await logActivity({
-    action: "price", entity_type: "product", entity_id: id, entity_name: result.name,
-    field: "precio", old_value: priceLabel(prevPrice), new_value: priceLabel(result.price),
-    summary: `cambió el precio de «${result.name}» de ${priceLabel(prevPrice)} a ${priceLabel(result.price)}`,
-  });
-  return result;
+
+  const name = result?.name || prev?.name || "";
+  for (const change of changes) {
+    await logActivity({
+      action: "price", entity_type: "product", entity_id: id, entity_name: name,
+      field: change.field, old_value: change.from, new_value: change.to,
+      summary: `cambió el ${change.field} de «${name}» de ${change.from} a ${change.to}`,
+    });
+  }
+
+  if (result) return result;
+  return {
+    id,
+    name,
+    reseller_price: toNullablePrice(pricingRow ? pricingRow.reseller_price : null),
+    javy_price: toNullablePrice(pricingRow ? pricingRow.javy_price : null),
+  };
 }
 
 // Update parcial de disponibilidad de un sabor: no reescribe nombre/precio/stock.
@@ -1495,6 +1642,8 @@ window.catalogDb = {
   updateProduct,
   setProductAvailability,
   setProductPricing,
+  pricingEnabled,
+  parsePrice: parsePriceOrThrow,
   setFlavorAvailability,
   deleteProduct,
   createFlavor,

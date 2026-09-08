@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-716eeeea";
+import { esc } from "./helpers.js?v=adm-7d237d02";
 
 // Tabla HTML simple desde columnas + filas (celdas en texto plano, se escapan aquí).
 export function buildTable(columns, rows, className = "") {
@@ -14,10 +14,14 @@ export function buildTable(columns, rows, className = "") {
 
 // Arma el PDF del informe (título + fecha + tabla) y lo devuelve como Blob.
 // Usa jsPDF + autotable, cargados como globales (window.jspdf) desde js/vendor.
-export function buildReportPDF(title, meta, columns, rows) {
+// `options.orientation`: "landscape" para informes anchos (ej. la lista de
+// precios con los tres precios, que en vertical queda apretada). Por omisión
+// vertical, que es como salían todos antes.
+export function buildReportPDF(title, meta, columns, rows, options = {}) {
   const ns = window.jspdf;
   if (!ns || !ns.jsPDF) throw new Error("No se pudo cargar el generador de PDF. Recarga la página e intenta de nuevo.");
-  const doc = new ns.jsPDF({ unit: "pt", format: "a4" });
+  const landscape = options.orientation === "landscape";
+  const doc = new ns.jsPDF({ unit: "pt", format: "a4", orientation: landscape ? "landscape" : "portrait" });
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
@@ -95,11 +99,13 @@ export async function saveOrShare(filename, blob, share = {}) {
 
 // Abre una ventana con el informe listo para imprimir / "Guardar como PDF".
 // Devuelve false si el navegador bloqueó la ventana emergente.
-export function printReport(title, meta, columns, rows) {
+export function printReport(title, meta, columns, rows, options = {}) {
   const w = window.open("", "_blank");
   if (!w) return false;
+  const landscape = options.orientation === "landscape";
   const doc = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title>
   <style>
+    @page{size:A4 ${landscape ? "landscape" : "portrait"};margin:14mm;}
     *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:28px;}
     h1{font-size:18px;margin:0 0 4px;} .meta{color:#555;font-size:12px;margin:0 0 18px;}
     table{width:100%;border-collapse:collapse;font-size:12px;}
