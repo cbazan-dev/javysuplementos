@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-f1bd090d";
+import { esc } from "./helpers.js?v=adm-c9944bbc";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -82,18 +82,24 @@ async function imageData(url, maxSide = 128) {
   }
 }
 
-async function preloadImages(items) {
+async function preloadImages(items, onEach = () => {}) {
   const urls = [...new Set(items.map((item) => item.image).filter(isRealImage))];
   const assets = new Map();
   let next = 0;
+  let listas = 0;
   await Promise.all(Array.from({ length: Math.min(4, urls.length) }, async () => {
     while (next < urls.length) {
       const url = urls[next++];
       assets.set(url, await imageData(url));
+      onEach(++listas, urls.length);
     }
   }));
   return assets;
 }
+
+// Cede el hilo para que el navegador repinte. El armado del PDF es sincrónico:
+// sin esto, el anillo de progreso se congela justo en la parte más lenta.
+const respirar = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function size(doc) {
   return { width: doc.internal.pageSize.getWidth(), height: doc.internal.pageSize.getHeight() };
@@ -195,6 +201,8 @@ function lineasProducto(item) {
 
 // Arma el PDF del informe y lo devuelve como Blob. Los informes de catálogo
 // pueden pasar products sin cambiar la tabla que se ve en la web.
+// `options.onProgress(fraccion, texto)`: avance real (0→1) para la animación de
+// carga; las imágenes son el tramo largo, por eso se llevan la mayor parte.
 // `options.orientation`: "landscape" para informes anchos (la lista de precios
 // con dos o más precios, que en vertical queda apretada). El resto del diseño
 // se adapta solo porque mide con pageSize.getWidth().
@@ -206,6 +214,8 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
     orientation: options.orientation === "landscape" ? "landscape" : "portrait",
   });
   const products = options.products || [];
+  const progreso = typeof options.onProgress === "function" ? options.onProgress : () => {};
+  progreso(0.04, "Preparando el informe…");
   const logo = await imageData(LOGO_URL, 160);
   if (!logo) throw new Error("No se pudo cargar el logo de Javy para el informe.");
 
@@ -213,21 +223,29 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
   let cursorY = mainHeader(doc, title, meta, logo);
 
   if (!products.length) {
+    progreso(0.5, "Armando la tabla…");
     doc.autoTable({
       ...baseTable(columns, rows, cursorY, 76),
       willDrawPage: (data) => { if (data.pageNumber > 1) continuationHeader(doc, title); },
     });
     addFooters(doc);
+    progreso(1, "Informe listo");
     return doc.output("blob");
   }
 
-  const assets = await preloadImages(products);
+  progreso(0.1, "Cargando las imágenes…");
+  const assets = await preloadImages(products, (hechas, total) => {
+    progreso(0.1 + 0.6 * (hechas / total), `Cargando imágenes · ${hechas} de ${total}`);
+  });
   const { height } = size(doc);
   const detailLabel = options.detailLabel || "";
   const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
   const tableWidth = size(doc).width - MARGIN * 2;
 
-  catalogGroups(products).forEach(({ category, groups }) => {
+  const familias = catalogGroups(products);
+  progreso(0.72, "Armando las páginas…");
+  let familiasListas = 0;
+  for (const { category, groups } of familias) {
     // El título de familia siempre viaja con la cabecera y primera fila.
     if (cursorY + 90 > height - 48) {
       doc.addPage();
@@ -292,9 +310,13 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
       cursorY = doc.lastAutoTable.finalY + 14;
     });
     cursorY += 6;
-  });
+    familiasListas += 1;
+    progreso(0.72 + 0.24 * (familiasListas / familias.length), `Armando las páginas · ${category}`);
+    await respirar();
+  }
 
   addFooters(doc);
+  progreso(1, "Informe listo");
   return doc.output("blob");
 }
 

@@ -11,12 +11,12 @@
    `pending` y solo viajan los campos que realmente tocó, para no pisar precios
    que ni miró.
    ============================================================================ */
-import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-f1bd090d";
-import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-f1bd090d";
-import { setView } from "../view.js?v=adm-f1bd090d";
-import { confirmModal, toast } from "../ui.js?v=adm-f1bd090d";
-import { reloadProducts } from "../data.js?v=adm-f1bd090d";
-import { canWrite, canManagePricing } from "../permissions.js?v=adm-f1bd090d";
+import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-c9944bbc";
+import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-c9944bbc";
+import { setView } from "../view.js?v=adm-c9944bbc";
+import { confirmModal, toast } from "../ui.js?v=adm-c9944bbc";
+import { reloadProducts } from "../data.js?v=adm-c9944bbc";
+import { canWrite, canManagePricing } from "../permissions.js?v=adm-c9944bbc";
 
 /* Los tres precios, en un solo sitio: la tabla, las cards y el guardado leen de
    acá, así que sumar un cuarto precio sería tocar solo esta lista. */

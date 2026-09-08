@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-f1bd090d";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-f1bd090d";
-import { paint } from "../view.js?v=adm-f1bd090d";
-import { toast } from "../ui.js?v=adm-f1bd090d";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-f1bd090d";
+import { state, catById, families, typesOf } from "../state.js?v=adm-c9944bbc";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-c9944bbc";
+import { paint } from "../view.js?v=adm-c9944bbc";
+import { toast, progressOverlay } from "../ui.js?v=adm-c9944bbc";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-c9944bbc";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -445,8 +445,16 @@ function renderResult(result, rep) {
   result.querySelector("[data-rep-save]").addEventListener("click", async (e) => {
     const btn = e.currentTarget;
     btn.disabled = true;
+    // Con catálogo grande el PDF tarda: el overlay muestra en qué va (imágenes,
+    // páginas) para que nadie crea que el botón no respondió.
+    const carga = progressOverlay({ title: "Armando tu informe", hint: "Preparando…" });
     try {
-      const blob = await buildReportPDF(rep.title, meta, rep.columns, rep.rows, rep.pdf);
+      const blob = await buildReportPDF(rep.title, meta, rep.columns, rep.rows, {
+        ...rep.pdf,
+        onProgress: (fraccion, texto) => carga.update(fraccion, texto),
+      });
+      carga.done("Informe listo");
+      carga.close(500);
       const mode = await saveOrShare(`${slugify(rep.title)}.pdf`, blob, {
         title: rep.title,
         text: `${rep.title} — ${meta}`,
@@ -454,6 +462,7 @@ function renderResult(result, rep) {
       if (mode === "shared") toast({ tone: "ok", msg: "Informe compartido" });
       else if (mode === "saved" || mode === "downloaded") toast({ tone: "ok", msg: "Informe guardado", sub: "Se descargó el PDF del informe." });
     } catch (error) {
+      carga.close();
       toast({ tone: "err", msg: "No se pudo generar el PDF", sub: error.message || String(error) });
     } finally {
       btn.disabled = false;
