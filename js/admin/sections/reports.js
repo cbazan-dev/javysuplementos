@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-c9944bbc";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-c9944bbc";
-import { paint } from "../view.js?v=adm-c9944bbc";
-import { toast, progressOverlay } from "../ui.js?v=adm-c9944bbc";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-c9944bbc";
+import { state, catById, families, typesOf } from "../state.js?v=adm-e87897bb";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-e87897bb";
+import { paint } from "../view.js?v=adm-e87897bb";
+import { toast, progressOverlay } from "../ui.js?v=adm-e87897bb";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-e87897bb";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -448,13 +448,17 @@ function renderResult(result, rep) {
     // Con catálogo grande el PDF tarda: el overlay muestra en qué va (imágenes,
     // páginas) para que nadie crea que el botón no respondió.
     const carga = progressOverlay({ title: "Armando tu informe", hint: "Preparando…" });
+    const inicio = Date.now();
     try {
       const blob = await buildReportPDF(rep.title, meta, rep.columns, rep.rows, {
         ...rep.pdf,
         onProgress: (fraccion, texto) => carga.update(fraccion, texto),
       });
       carga.done("Informe listo");
-      carga.close(500);
+      // Con las imágenes en caché el PDF sale en un parpadeo y el overlay se
+      // veía como un destello raro. Se queda en pantalla un mínimo para que se
+      // lea el "listo"; no retrasa el guardado, solo el cierre de la animación.
+      carga.close(Math.max(0, 1000 - (Date.now() - inicio)) + 600);
       const mode = await saveOrShare(`${slugify(rep.title)}.pdf`, blob, {
         title: rep.title,
         text: `${rep.title} — ${meta}`,

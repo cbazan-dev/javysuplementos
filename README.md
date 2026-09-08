@@ -347,7 +347,12 @@ documento lo advierte.
 Al guardar el PDF se abre un overlay con anillo de progreso (`progressOverlay()` en
 `js/admin/ui.js`). El avance es real: `buildReportPDF` reporta por `options.onProgress(fracción,
 texto)` las imágenes descargadas y las páginas armadas, y cede el hilo entre familias para que la
-animación no se congele. Termina en check verde y se cierra sin bloquear el compartir nativo.
+animación no se congele. Termina en check verde y se cierra sin bloquear el compartir nativo; con
+las imágenes en caché el PDF sale en un parpadeo, así que el overlay se queda en pantalla un mínimo
+de ~1 s para que se alcance a leer.
+
+`vercel.json` sirve el HTML con `max-age=0, must-revalidate`, igual que el JS y el CSS: si `admin.html`
+queda cacheado, el panel arranca con el token `?v=adm-...` viejo y no se ven los cambios nuevos.
 
 ---
 
