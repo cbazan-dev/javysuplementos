@@ -340,8 +340,14 @@ línea de detalle. Los productos se agrupan por familia (Proteínas, Creatina) y
 subcategoría (Whey, ISO, saborizada…); los cargados directo en la familia van primero, sin subtítulo.
 Bajo el nombre de cada producto van su marca y su presentación (`ON · 5 lb`), para distinguir dos
 formatos del mismo producto. La casilla *Incluir sabores disponibles* suma otra línea con los sabores
-en stock (hasta seis, luego `+N más`); los agotados y los productos sin sabor no la llevan. Los precios que no estén asignados salen como `—`, y si
-el informe lleva precios internos el propio documento lo advierte.
+en stock (hasta seis, luego `+N más`); los agotados y los productos sin sabor no la llevan. Los
+precios que no estén asignados salen como `—`, y si el informe lleva precios internos el propio
+documento lo advierte.
+
+Al guardar el PDF se abre un overlay con anillo de progreso (`progressOverlay()` en
+`js/admin/ui.js`). El avance es real: `buildReportPDF` reporta por `options.onProgress(fracción,
+texto)` las imágenes descargadas y las páginas armadas, y cede el hilo entre familias para que la
+animación no se congele. Termina en check verde y se cierra sin bloquear el compartir nativo.
 
 ---
 

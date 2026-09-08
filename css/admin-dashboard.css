@@ -811,6 +811,75 @@ body.ad-body { min-height: 100vh; }
 .ad-confirm p { color: var(--pb-muted); font-size: 0.9rem; line-height: 1.5; }
 .ad-confirm__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 
+/* ---- progreso de tarea larga (PDF de informes) ---- */
+/* z-index 340: por encima del cropper (320) y del confirm (300). Bloquea el
+   panel a propósito mientras se arma el PDF: tocar otro botón a mitad del
+   proceso solo lograba dos generaciones compitiendo. */
+.ad-progress-overlay {
+  position: fixed; inset: 0; z-index: 340;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(4,7,11,0.74);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  animation: adFade .18s ease;
+}
+.ad-progress-overlay.is-out { animation: adFade .2s ease reverse forwards; }
+.ad-progress {
+  width: min(320px, 100%); display: grid; justify-items: center; gap: 6px;
+  padding: 26px 22px 24px; text-align: center;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius);
+  background: linear-gradient(180deg, #0d141d, #090d13);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.55);
+  animation: adModalIn .22s cubic-bezier(.4,0,.2,1) both;
+}
+.ad-progress h3 { margin-top: 10px; font-size: 1.02rem; font-weight: 800; }
+.ad-progress__hint { color: var(--pb-muted); font-size: 0.82rem; min-height: 1.2em; }
+
+.ad-progress__ring { position: relative; width: 132px; height: 132px; display: grid; place-items: center; }
+.ad-progress__ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* El arco arranca arriba, no a las 3 en punto. El check no se rota: se dibuja
+   en las coordenadas en que fue trazado. */
+.ad-progress__ring > svg:not(.ad-progress__check) { transform: rotate(-90deg); }
+.ad-progress__track { fill: none; stroke: var(--pb-white-06); stroke-width: 8; }
+.ad-progress__bar {
+  fill: none; stroke: var(--ad-blue); stroke-width: 8; stroke-linecap: round;
+  /* La transición es lo que convierte saltos de porcentaje en un avance
+     continuo; el glow hace que el arco se lea sobre el fondo oscuro. */
+  transition: stroke-dashoffset .4s cubic-bezier(.4,0,.2,1), stroke .3s ease;
+  filter: drop-shadow(0 0 6px rgba(90,180,233,0.55));
+}
+/* Arco corto que gira siempre: aunque una imagen lenta deje el porcentaje
+   quieto, se ve que el proceso sigue vivo. */
+.ad-progress__spin circle {
+  fill: none; stroke: var(--pb-brand); stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 26 300; opacity: .85;
+}
+.ad-progress__spin { animation: adSpin 1.5s linear infinite; transform-origin: 50% 50%; }
+.ad-progress__logo { width: 42px; height: 42px; object-fit: contain; animation: adProgressPulse 1.8s ease-in-out infinite; }
+.ad-progress__pct { position: absolute; bottom: 26px; font-size: 0.78rem; font-weight: 800; color: var(--ad-blue); letter-spacing: .02em; }
+.ad-progress__check { opacity: 0; }
+.ad-progress__check path {
+  fill: none; stroke: var(--ad-green); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 70; stroke-dashoffset: 70;
+}
+@keyframes adProgressPulse { 0%, 100% { transform: scale(1); opacity: .95; } 50% { transform: scale(1.06); opacity: 1; } }
+@keyframes adProgressCheck { to { stroke-dashoffset: 0; } }
+
+/* Estado final: el anillo se pone verde, el logo cede su lugar al check. */
+.ad-progress-overlay.is-done .ad-progress__bar { stroke: var(--ad-green); filter: drop-shadow(0 0 8px rgba(0,230,118,0.5)); }
+.ad-progress-overlay.is-done .ad-progress__spin { opacity: 0; transition: opacity .2s ease; }
+.ad-progress-overlay.is-done .ad-progress__logo { opacity: 0; transform: scale(.8); transition: opacity .2s ease, transform .2s ease; animation: none; }
+/* Al terminar, el check ocupa el centro: el 100% al lado sobra y se le cruza. */
+.ad-progress-overlay.is-done .ad-progress__pct { opacity: 0; transition: opacity .2s ease; }
+.ad-progress-overlay.is-done .ad-progress__check { opacity: 1; transform: none; }
+.ad-progress-overlay.is-done .ad-progress__check path { animation: adProgressCheck .35s ease .05s forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-progress-overlay, .ad-progress { animation: none; }
+  .ad-progress__spin, .ad-progress__logo { animation: none; }
+  .ad-progress__bar { transition: none; }
+  .ad-progress__check path { stroke-dashoffset: 0; animation: none; }
+}
+
 /* ---- editor de encuadre (cropper) ---- */
 /* z-index por encima del confirm (300), que a su vez está por encima del
    modal de producto (100): el cropper se abre desde adentro del drawer. */

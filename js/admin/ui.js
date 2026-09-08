@@ -3,7 +3,7 @@
    toasts, modales (confirm/prompt), gate, markup de formulario y chips-input.
    Solo depende de helpers (esc, ico, DOM).
    ============================================================================ */
-import { $, $$, esc, ico } from "./helpers.js?v=adm-f1bd090d";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-c9944bbc";
 
 /* ----------------------------- toasts ----------------------------- */
 export function toast({ tone = "ok", msg = "", sub = "" }) {
@@ -20,6 +20,73 @@ export function toast({ tone = "ok", msg = "", sub = "" }) {
   el.querySelector(".ad-toast__x").addEventListener("click", remove);
   host.appendChild(el);
   setTimeout(remove, 3600);
+}
+
+/* --------------------------- progreso de tarea larga --------------------------- */
+/* Overlay con anillo de progreso alrededor del logo. Nace para el PDF de los
+   informes: armarlo baja e incrusta una imagen por producto, así que en un
+   catálogo grande y con datos móviles pasan varios segundos. Sin señal, el
+   botón parecía muerto y el dueño lo tocaba de nuevo.
+
+   El progreso es real (imágenes descargadas y páginas armadas), no una barra
+   decorativa: si se queda parado en 40% es porque una imagen está tardando. */
+export function progressOverlay({ title = "Generando…", hint = "" } = {}) {
+  const host = $("#adminConfirmHost") || document.body;
+  const overlay = document.createElement("div");
+  overlay.className = "ad-progress-overlay";
+  overlay.innerHTML = `
+    <div class="ad-progress" role="status" aria-live="polite">
+      <div class="ad-progress__ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ad-progress__track" cx="60" cy="60" r="52" />
+          <circle class="ad-progress__bar" cx="60" cy="60" r="52" />
+        </svg>
+        <svg class="ad-progress__spin" viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" />
+        </svg>
+        <img class="ad-progress__logo" src="img/icons/logo.png" alt="" />
+        <svg class="ad-progress__check" viewBox="0 0 120 120" aria-hidden="true">
+          <path d="M38 62 L54 78 L84 44" />
+        </svg>
+        <span class="ad-progress__pct" data-pct>0%</span>
+      </div>
+      <h3>${esc(title)}</h3>
+      <p class="ad-progress__hint" data-hint>${esc(hint)}</p>
+    </div>`;
+  host.appendChild(overlay);
+
+  // 52 de radio → 2πr. El anillo se dibuja con dashoffset, que anima suave.
+  const LARGO = 2 * Math.PI * 52;
+  const bar = overlay.querySelector(".ad-progress__bar");
+  const pct = overlay.querySelector("[data-pct]");
+  const hintEl = overlay.querySelector("[data-hint]");
+  bar.style.strokeDasharray = String(LARGO);
+  bar.style.strokeDashoffset = String(LARGO);
+
+  let visto = 0;
+  return {
+    // El progreso nunca retrocede: una etapa que reporta menos que la anterior
+    // (imágenes en caché, por ejemplo) haría saltar el anillo hacia atrás.
+    update(fraction, label = "") {
+      visto = Math.max(visto, Math.min(1, Math.max(0, Number(fraction) || 0)));
+      bar.style.strokeDashoffset = String(LARGO * (1 - visto));
+      pct.textContent = `${Math.round(visto * 100)}%`;
+      if (label) hintEl.textContent = label;
+    },
+    done(label = "¡Listo!") {
+      this.update(1);
+      overlay.classList.add("is-done");
+      hintEl.textContent = label;
+    },
+    // Cierre diferido y sin await: el compartir nativo del celular tiene que
+    // salir en el mismo gesto, no después de una animación.
+    close(delay = 0) {
+      setTimeout(() => {
+        overlay.classList.add("is-out");
+        setTimeout(() => overlay.remove(), 220);
+      }, delay);
+    },
+  };
 }
 
 /* --------------------------- confirm / prompt --------------------------- */
