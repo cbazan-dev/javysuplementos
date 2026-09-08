@@ -11,12 +11,12 @@
    `pending` y solo viajan los campos que realmente tocó, para no pisar precios
    que ni miró.
    ============================================================================ */
-import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-f1bd090d";
-import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-f1bd090d";
-import { setView } from "../view.js?v=adm-f1bd090d";
-import { confirmModal, toast } from "../ui.js?v=adm-f1bd090d";
-import { reloadProducts } from "../data.js?v=adm-f1bd090d";
-import { canWrite, canManagePricing } from "../permissions.js?v=adm-f1bd090d";
+import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-aabdc4b7";
+import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-aabdc4b7";
+import { setView } from "../view.js?v=adm-aabdc4b7";
+import { confirmModal, toast } from "../ui.js?v=adm-aabdc4b7";
+import { reloadProducts } from "../data.js?v=adm-aabdc4b7";
+import { canWrite, canManagePricing } from "../permissions.js?v=adm-aabdc4b7";
 
 /* Los tres precios, en un solo sitio: la tabla, las cards y el guardado leen de
    acá, así que sumar un cuarto precio sería tocar solo esta lista. */
@@ -117,6 +117,11 @@ function priceText(p, field) {
 
 const priceCell = (p, field, editable) => (editable ? priceInput(p, field) : priceText(p, field));
 
+/* La presentación (5 lb, 60 caps…) al lado de la marca: con dos tamaños del
+   mismo producto en la lista, el nombre solo no alcanza para saber cuál se
+   está tarifando. */
+const presTag = (p) => (p.presentation ? `<span class="ad-pres">${esc(p.presentation)}</span>` : "");
+
 /* Contexto del precio de venta, solo lectura: la oferta se sigue editando en el
    drawer. Acá se muestra para que nadie cambie un precio sin ver que tiene una
    oferta encima. */
@@ -142,7 +147,7 @@ function resultsHTML(list, can) {
 
   const rows = list.map((p) => `
     <tr>
-      <td><div class="ad-cell-prod">${imgTag(p.image)}<div><strong>${esc(p.name)}</strong><small>${esc(p.brand || "—")}</small></div></div></td>
+      <td><div class="ad-cell-prod">${imgTag(p.image)}<div><strong>${esc(p.name)}</strong><small>${esc(p.brand || "—")}${presTag(p)}</small></div></div></td>
       ${FIELDS.map((f) => `<td>${priceCell(p, f.key, f.internal ? can.internal : can.sale)}</td>`).join("")}
       <td>${statusCell(p)}</td>
     </tr>`).join("");
@@ -151,7 +156,7 @@ function resultsHTML(list, can) {
     <div class="ad-price-card">
       <div class="ad-price-card__head">
         ${imgTag(p.image)}
-        <div><h3>${esc(p.name)}</h3><p class="ad-meta">${esc(p.brand || "")}${p.category ? " · " + esc(p.category) : ""}</p></div>
+        <div><h3>${esc(p.name)}</h3><p class="ad-meta">${esc(p.brand || "")}${p.category ? " · " + esc(p.category) : ""}${presTag(p)}</p></div>
       </div>
       <div class="ad-price-card__grid">
         ${FIELDS.map((f) => `
@@ -173,16 +178,22 @@ function resultsHTML(list, can) {
      <div class="ad-price-cards">${cards}</div>`;
 }
 
-/* Barra de cambios sin guardar. Mismo patrón que la de selección en Productos:
-   aparece solo cuando hay algo que hacer. */
-function pendingBarHTML() {
+/* Barra de cambios sin guardar. Vive SIEMPRE en el DOM y se abre/cierra con una
+   clase: así se anima (ver .ad-pendingbar) y no se reconstruye —con sus iconos y
+   sus listeners— en cada tecla, que era lo que la hacía saltar de golpe. */
+function pendingLabel() {
   const n = pendingCount();
-  if (!n) return "";
   const prods = pending.size;
-  return `<div class="ad-bulkbar ad-bulkbar--pending" role="region" aria-label="Cambios de precio sin guardar">
-    <span class="ad-bulkbar__count">${n} ${n === 1 ? "precio" : "precios"} sin guardar${prods > 1 ? ` · ${prods} productos` : ""}</span>
-    <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-save-prices>${ico("save")}Guardar cambios</button>
-    <button class="ad-link-btn" type="button" data-discard>${ico("x")}Descartar</button>
+  return `${n} ${n === 1 ? "precio" : "precios"} sin guardar${prods > 1 ? ` · ${prods} productos` : ""}`;
+}
+
+function pendingBarHTML() {
+  return `<div class="ad-pendingbar__inner">
+    <div class="ad-bulkbar ad-bulkbar--pending" role="region" aria-label="Cambios de precio sin guardar">
+      <span class="ad-bulkbar__count" data-pending-count>${esc(pendingLabel())}</span>
+      <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-save-prices>${ico("save")}Guardar cambios</button>
+      <button class="ad-link-btn" type="button" data-discard>${ico("x")}Descartar</button>
+    </div>
   </div>`;
 }
 
@@ -259,7 +270,7 @@ export function renderPricing() {
           </div>
         </div>
       </div>
-      <div data-pendingbar>${pendingBarHTML()}</div>
+      <div class="ad-pendingbar${pendingCount() ? " is-on" : ""}" data-pendingbar>${pendingBarHTML()}</div>
       <div data-results>${resultsHTML(list, can)}</div>
     </div>`);
 
@@ -315,16 +326,19 @@ function updateResults(view, can) {
   const clear = view.querySelector("[data-clear]");
   if (clear) clear.hidden = !hasActiveFilters();
 
-  refreshPendingBar(view, can);
+  refreshPendingBar(view);
   wireCells(view, can);
 }
 
-function refreshPendingBar(view, can) {
-  const bar = view.querySelector("[data-pendingbar]");
-  if (!bar) return;
-  bar.innerHTML = pendingBarHTML();
-  if (window.javyIcons) window.javyIcons.enhance(bar);
-  wirePendingBar(view, can);
+/* Solo cambia el rótulo y abre/cierra la barra: el markup y los listeners se
+   crean una vez por render, no en cada pulsación. */
+function refreshPendingBar(view) {
+  const slot = view.querySelector("[data-pendingbar]");
+  if (!slot) return;
+  const n = pendingCount();
+  slot.classList.toggle("is-on", n > 0);
+  const count = slot.querySelector("[data-pending-count]");
+  if (count && n) count.textContent = pendingLabel(); // al cerrarse conserva el último texto mientras se desvanece
   syncUnloadGuard();
 }
 
@@ -343,7 +357,7 @@ function wireCells(view, can) {
         cell.classList.toggle("is-dirty", input.value !== original);
         cell.classList.remove("is-invalid");
       }
-      refreshPendingBar(view, can);
+      refreshPendingBar(view);
     });
   });
 }

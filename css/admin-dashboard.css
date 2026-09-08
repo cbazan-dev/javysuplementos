@@ -1488,16 +1488,60 @@ body.ad-body { min-height: 100vh; }
 .ad-price-cell.is-dirty .ad-input-affix__sign, .ad-price-cell.is-dirty .ad-ico { color: var(--ad-amber); }
 .ad-price-cell.is-invalid .ad-input { border-color: var(--ad-red); background: rgba(255,79,118,0.10); }
 
+/* Presentación del producto junto a la marca, en la tabla y en las cards. */
+.ad-pres {
+  display: inline-flex; align-items: center; min-height: 18px; padding: 0 7px;
+  margin-left: 6px; border-radius: 999px;
+  background: var(--pb-blue-tint-12); color: #d2ecff;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.01em;
+  vertical-align: 1px;
+}
+
 /* Precio sin asignar: se ve como un hueco, no como un valor. */
 .ad-price-empty { color: var(--pb-muted-2); font-weight: 600; }
 
 .ad-table--pricing { min-width: 880px; }
 .ad-table--pricing td { padding-top: 8px; padding-bottom: 8px; }
 
-/* Barra de cambios sin guardar: misma forma que la de selección, en ámbar
-   porque no es una acción disponible sino trabajo pendiente. */
-.ad-bulkbar--pending { border-color: var(--ad-amber); background: var(--pb-amber-tint-12); }
+/* Barra de cambios sin guardar, en ámbar porque no es una acción disponible sino
+   trabajo pendiente. La forma base vivía en la barra de selección múltiple de
+   Productos, que se retiró; se define acá, que es donde quedó en uso. */
+.ad-bulkbar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin: 10px 0 6px; padding: 10px 14px;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius);
+  background: var(--pb-white-04);
+}
+.ad-bulkbar__count { font-size: 0.86rem; font-weight: 700; color: var(--pb-text); }
+.ad-bulkbar .ad-btn--sm { min-height: 34px; }
+.ad-bulkbar .ad-link-btn { margin-left: auto; }
+.ad-bulkbar--pending { border-color: rgba(255,179,0,0.45); background: var(--pb-amber-tint-12); }
 .ad-bulkbar--pending .ad-bulkbar__count { color: #ffe0a3; }
+
+/* Contenedor que la despliega: anima la altura (0fr → 1fr) además del fundido,
+   así la tabla se corre suave en vez de dar el salto de golpe al primer tecleo. */
+.ad-pendingbar {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .22s cubic-bezier(.4,0,.2,1);
+}
+.ad-pendingbar__inner { overflow: hidden; min-height: 0; }
+.ad-pendingbar .ad-bulkbar {
+  opacity: 0; transform: translateY(-6px); visibility: hidden;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.4,0,.2,1), visibility 0s linear .22s;
+}
+.ad-pendingbar.is-on { grid-template-rows: 1fr; }
+.ad-pendingbar.is-on .ad-bulkbar {
+  opacity: 1; transform: none; visibility: visible;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.4,0,.2,1), visibility 0s;
+}
+@media (max-width: 560px) {
+  .ad-bulkbar .ad-btn--sm { flex: 1 1 auto; justify-content: center; }
+  .ad-bulkbar .ad-link-btn { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-pendingbar, .ad-pendingbar .ad-bulkbar { transition: none; }
+}
 
 /* Cards de precios (móvil). La tabla se oculta en 760px, igual que en Productos. */
 .ad-price-cards { display: none; gap: 12px; }
