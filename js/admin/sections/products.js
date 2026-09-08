@@ -2,13 +2,13 @@
    Sección Productos: barra de búsqueda + filtros (familia + estado) y la
    tabla/cards con acciones por fila.
    ============================================================================ */
-import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-ef5d81a9";
-import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-ef5d81a9";
-import { setView } from "../view.js?v=adm-ef5d81a9";
-import { bindEditClicks } from "../shell.js?v=adm-ef5d81a9";
-import { confirmModal, toast } from "../ui.js?v=adm-ef5d81a9";
-import { reloadProducts } from "../data.js?v=adm-ef5d81a9";
-import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-ef5d81a9";
+import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-d93a4d8b";
+import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-d93a4d8b";
+import { setView } from "../view.js?v=adm-d93a4d8b";
+import { bindEditClicks } from "../shell.js?v=adm-d93a4d8b";
+import { confirmModal, toast } from "../ui.js?v=adm-d93a4d8b";
+import { reloadProducts } from "../data.js?v=adm-d93a4d8b";
+import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-d93a4d8b";
 
 const STATUS_FILTERS = [
   ["all", "Todos"], ["home", "En inicio"], ["offers", "En oferta"], ["out", "Agotados"], ["noimg", "Sin imagen"],

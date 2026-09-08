@@ -1032,6 +1032,11 @@ body.ad-body { min-height: 100vh; }
 /* auto-fit y no columnas fijas: los cuatro filtros entran en una fila en
    escritorio y se apilan solos en el panel angosto, sin media query aparte. */
 .ad-rep-medida__filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+/* Los precios van en su propia fila bajo los filtros: son de otra naturaleza
+   (qué columnas trae el PDF, no qué productos entran) y en una sola línea se
+   ven las tres opciones juntas. */
+.ad-rep-medida__precios { margin-top: 14px; }
+.ad-rep-opts--row { display: flex; flex-wrap: wrap; gap: 2px 20px; }
 
 /* ---- settings status ---- */
 .ad-status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
