@@ -297,7 +297,7 @@ const COMMON_SCRIPTS = [
   "/js/whatsapp-config.js?v=num-2026-08",
   "/js/product-data.js",
   "/js/product-urls.js?v=seo-urls",
-  "/js/db.js?v=tuteo-1",
+  "/js/db.js?v=precios-1",
   "/js/auth.js?v=session-state",
   "/js/icons.js?v=sidebar-toggle-1",
   "/js/dropdown.js?v=resize-fix-1",
