@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-3618d20f";
+import { esc } from "./helpers.js?v=adm-41c956cf";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -18,18 +18,29 @@ const isRealImage = (url = "") => Boolean(url) && !String(url).includes("product
 const absoluteUrl = (url) => new URL(url, document.baseURI).href;
 
 function catalogGroups(items = []) {
-  const groups = new Map();
+  // Dos niveles: familia (Proteínas, Creatina) y dentro de ella la subcategoría
+  // del producto (Whey, ISO, saborizada…). Los productos cargados directo en la
+  // familia van primero, sin subtítulo: no hay subcategoría que anunciar.
+  const familias = new Map();
   items.filter(Boolean).slice().sort((a, b) => {
     const byCategory = String(a.category || "Sin categoría").localeCompare(String(b.category || "Sin categoría"), "es");
     if (byCategory) return byCategory;
+    const bySub = String(a.subcategory || "").localeCompare(String(b.subcategory || ""), "es");
+    if (bySub) return bySub;
     const byBrand = String(a.brand || "").localeCompare(String(b.brand || ""), "es");
     return byBrand || String(a.name || "").localeCompare(String(b.name || ""), "es");
   }).forEach((item) => {
     const category = item.category || "Sin categoría";
-    if (!groups.has(category)) groups.set(category, []);
-    groups.get(category).push(item);
+    const subcategory = item.subcategory || "";
+    if (!familias.has(category)) familias.set(category, new Map());
+    const subs = familias.get(category);
+    if (!subs.has(subcategory)) subs.set(subcategory, []);
+    subs.get(subcategory).push(item);
   });
-  return [...groups.entries()].map(([category, products]) => ({ category, products }));
+  return [...familias.entries()].map(([category, subs]) => ({
+    category,
+    groups: [...subs.entries()].map(([subcategory, products]) => ({ subcategory, products })),
+  }));
 }
 
 function loadImage(url) {
@@ -131,6 +142,15 @@ function categoryHeading(doc, category, y) {
   doc.text(String(category), MARGIN + 10, y + 14);
 }
 
+// Subtítulo de subcategoría: más discreto que la barra azul de la familia, para
+// que se lea como un escalón dentro de ella y no como otra categoría.
+function subcategoryHeading(doc, subcategory, y) {
+  const { width } = size(doc);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(...PDF.muted);
+  doc.text(String(subcategory).toUpperCase(), MARGIN + 2, y + 10);
+  doc.setDrawColor(...PDF.line); doc.line(MARGIN + 2, y + 14, width - MARGIN, y + 14);
+}
+
 function addFooters(doc) {
   const { width } = size(doc);
   const total = doc.getNumberOfPages();
@@ -198,53 +218,75 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
   const assets = await preloadImages(products);
   const { height } = size(doc);
   const detailLabel = options.detailLabel || "";
-  catalogGroups(products).forEach(({ category, products: group }) => {
-    // El título de categoría siempre viaja con la cabecera y primera fila.
+  const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
+  const tableWidth = size(doc).width - MARGIN * 2;
+
+  catalogGroups(products).forEach(({ category, groups }) => {
+    // El título de familia siempre viaja con la cabecera y primera fila.
     if (cursorY + 90 > height - 48) {
       doc.addPage();
       continuationHeader(doc, title);
       cursorY = 72;
     }
     categoryHeading(doc, category, cursorY);
-    const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
-    const tableWidth = size(doc).width - MARGIN * 2;
-    const body = group.map((item) => {
-      const linea2 = subtitulo(item);
-      const product = linea2 ? `${item.name || "—"}\n${linea2}` : (item.name || "—");
-      return detailLabel ? [item.image || "", product, item.price || "Consultar", item.detail || "—"] : [item.image || "", product, item.price || "Consultar"];
-    });
-    doc.autoTable({
-      ...baseTable(head, body, cursorY + 30, 116),
-      tableWidth,
-      styles: { ...baseTable(head, body, 0).styles, minCellHeight: 46 },
-      // minCellHeight es para las filas con foto; la cabecera se queda ceñida al texto.
-      headStyles: { ...baseTable(head, body, 0).headStyles, minCellHeight: 0 },
-      columnStyles: detailLabel
-        ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "center", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
-        : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "center", fontStyle: "bold" } },
-      willDrawPage: (data) => {
-        if (data.pageNumber > 1) {
+    cursorY += 30;
+
+    groups.forEach(({ subcategory, products: group }) => {
+      // En la continuación de página va un solo rótulo con los dos niveles:
+      // así la geometría (y el margen superior de la tabla) no cambia.
+      const rotulo = subcategory ? `${category} · ${subcategory}` : category;
+      if (subcategory) {
+        // Un subtítulo suelto al pie de la página no ayuda a nadie: si no entra
+        // con su cabecera y una fila, arranca en la siguiente.
+        if (cursorY + 90 > height - 48) {
+          doc.addPage();
           continuationHeader(doc, title);
-          categoryHeading(doc, category, 72);
+          categoryHeading(doc, rotulo, 72);
+          cursorY = 102;
+        } else {
+          subcategoryHeading(doc, subcategory, cursorY);
+          cursorY += 20;
         }
-      },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 0) data.cell.text = [];
-        // columnStyles no llega a la cabecera: centramos "Precio actual" sobre el monto.
-        if (data.section === "head" && data.column.index === 2) data.cell.styles.halign = "center";
-      },
-      didDrawCell: (data) => {
-        if (data.section !== "body" || data.column.index !== 0) return;
-        const asset = assets.get(data.cell.raw);
-        if (!asset) return;
-        const max = 31;
-        const ratio = asset.width / asset.height || 1;
-        const imageWidth = ratio >= 1 ? max : max * ratio;
-        const imageHeight = ratio >= 1 ? max / ratio : max;
-        doc.addImage(asset.data, "JPEG", data.cell.x + (data.cell.width - imageWidth) / 2, data.cell.y + (data.cell.height - imageHeight) / 2, imageWidth, imageHeight);
-      },
+      }
+      const body = group.map((item) => {
+        const linea2 = subtitulo(item);
+        const product = linea2 ? `${item.name || "—"}\n${linea2}` : (item.name || "—");
+        return detailLabel ? [item.image || "", product, item.price || "Consultar", item.detail || "—"] : [item.image || "", product, item.price || "Consultar"];
+      });
+      doc.autoTable({
+        ...baseTable(head, body, cursorY, 116),
+        tableWidth,
+        styles: { ...baseTable(head, body, 0).styles, minCellHeight: 46 },
+        // minCellHeight es para las filas con foto; la cabecera se queda ceñida al texto.
+        headStyles: { ...baseTable(head, body, 0).headStyles, minCellHeight: 0 },
+        columnStyles: detailLabel
+          ? { 0: { cellWidth: 38 }, 1: { cellWidth: 240 }, 2: { cellWidth: 72, halign: "center", fontStyle: "bold" }, 3: { cellWidth: tableWidth - 350 } }
+          : { 0: { cellWidth: 38 }, 1: { cellWidth: tableWidth - 128 }, 2: { cellWidth: 90, halign: "center", fontStyle: "bold" } },
+        willDrawPage: (data) => {
+          if (data.pageNumber > 1) {
+            continuationHeader(doc, title);
+            categoryHeading(doc, rotulo, 72);
+          }
+        },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 0) data.cell.text = [];
+          // columnStyles no llega a la cabecera: centramos "Precio actual" sobre el monto.
+          if (data.section === "head" && data.column.index === 2) data.cell.styles.halign = "center";
+        },
+        didDrawCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 0) return;
+          const asset = assets.get(data.cell.raw);
+          if (!asset) return;
+          const max = 31;
+          const ratio = asset.width / asset.height || 1;
+          const imageWidth = ratio >= 1 ? max : max * ratio;
+          const imageHeight = ratio >= 1 ? max / ratio : max;
+          doc.addImage(asset.data, "JPEG", data.cell.x + (data.cell.width - imageWidth) / 2, data.cell.y + (data.cell.height - imageHeight) / 2, imageWidth, imageHeight);
+        },
+      });
+      cursorY = doc.lastAutoTable.finalY + 14;
     });
-    cursorY = doc.lastAutoTable.finalY + 18;
+    cursorY += 6;
   });
 
   addFooters(doc);
@@ -303,15 +345,19 @@ export async function saveOrShare(filename, blob, share = {}) {
 }
 
 function printCatalog(items, detailLabel = "") {
-  return catalogGroups(items).map(({ category, products }) => `
-    <section class="catalog-group">
-      <h2>${esc(category)}</h2>
-      <table><thead><tr><th class="image-col"></th><th>Producto</th><th class="price-col">Precio actual</th>${detailLabel ? `<th>${esc(detailLabel)}</th>` : ""}</tr></thead>
-      <tbody>${products.map((item) => `<tr>
+  const filas = (products) => products.map((item) => `<tr>
         <td class="image-col">${isRealImage(item.image) ? `<img src="${esc(absoluteUrl(item.image))}" alt="" />` : ""}</td>
         <td><strong>${esc(item.name || "—")}</strong>${subtitulo(item) ? `<small>${esc(subtitulo(item))}</small>` : ""}</td>
         <td class="price-col">${esc(item.price || "Consultar")}</td>${detailLabel ? `<td>${esc(item.detail || "—")}</td>` : ""}
-      </tr>`).join("")}</tbody></table>
+      </tr>`).join("");
+
+  return catalogGroups(items).map(({ category, groups }) => `
+    <section class="catalog-group">
+      <h2>${esc(category)}</h2>
+      ${groups.map(({ subcategory, products }) => `
+      ${subcategory ? `<h3>${esc(subcategory)}</h3>` : ""}
+      <table><thead><tr><th class="image-col"></th><th>Producto</th><th class="price-col">Precio actual</th>${detailLabel ? `<th>${esc(detailLabel)}</th>` : ""}</tr></thead>
+      <tbody>${filas(products)}</tbody></table>`).join("")}
     </section>`).join("");
 }
 
@@ -327,7 +373,7 @@ export function printReport(title, meta, columns, rows, options = {}) {
   <style>
     @page{size:A4 ${landscape ? "landscape" : "portrait"};margin:16mm 14mm 18mm;} *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#0d1927;margin:0;font-size:10pt;}
     .report-header{display:flex;align-items:center;gap:14px;padding:0 0 16px;border-bottom:2px solid #0191c6;margin-bottom:20px;}.report-header img{width:48px;height:48px;object-fit:contain;}.brand{font-size:9pt;font-weight:700;letter-spacing:.04em;color:#0191c6;margin:0 0 3px;}.report-header h1{font-size:19pt;margin:0;line-height:1.1;}.meta{color:#5b6c7d;font-size:9pt;margin:5px 0 0;}
-    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;padding-top:3px;padding-bottom:3px;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:center;font-weight:700;white-space:nowrap;}
+    .catalog-group{break-inside:avoid-page;page-break-inside:avoid;margin:0 0 18px;}.catalog-group h2{font-size:11pt;color:#0191c6;background:#eff8fc;border-radius:5px;padding:7px 10px;margin:0 0 7px;}.catalog-group h3{font-size:8.5pt;color:#5b6c7d;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #dce3ea;padding:0 2px 4px;margin:10px 0 6px;}table{width:100%;border-collapse:collapse;font-size:9pt;}thead{display:table-header-group;}tr{break-inside:avoid;page-break-inside:avoid;}th,td{border-bottom:1px solid #dce3ea;padding:7px 8px;text-align:left;vertical-align:middle;}th{background:#0d1927;color:#fff;text-transform:uppercase;font-size:7.5pt;letter-spacing:.05em;padding-top:3px;padding-bottom:3px;}tbody tr:nth-child(even) td{background:#f7fafc;}td strong{display:block;font-size:9.5pt;}td small{display:block;color:#5b6c7d;margin-top:2px;}.image-col{width:42px;text-align:center;}.image-col img{width:30px;height:30px;object-fit:contain;}.price-col{text-align:center;font-weight:700;white-space:nowrap;}
     .report-footer{position:fixed;bottom:-11mm;left:0;right:0;border-top:1px solid #dce3ea;padding-top:4px;color:#5b6c7d;font-size:8pt;display:flex;justify-content:space-between;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   </style></head><body>
     <header class="report-header"><img src="${LOGO_URL}" alt="Javy Suplementos" /><div><p class="brand">JAVY SUPLEMENTOS · Visita javysuplementos.com para ver los productos</p><h1>${esc(title)}</h1><p class="meta">${esc(meta)}</p></div></header>

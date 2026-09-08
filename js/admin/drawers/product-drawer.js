@@ -3,14 +3,14 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-3618d20f";
-import { canManagePricing } from "../permissions.js?v=adm-3618d20f";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-3618d20f";
-import { $, esc, ico } from "../helpers.js?v=adm-3618d20f";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-3618d20f";
-import { requestRerender } from "../shell.js?v=adm-3618d20f";
-import { reloadProducts } from "../data.js?v=adm-3618d20f";
-import { openImageCropper } from "../image-cropper.js?v=adm-3618d20f";
+import { state, catById, families, typesOf } from "../state.js?v=adm-41c956cf";
+import { canManagePricing } from "../permissions.js?v=adm-41c956cf";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-41c956cf";
+import { $, esc, ico } from "../helpers.js?v=adm-41c956cf";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-41c956cf";
+import { requestRerender } from "../shell.js?v=adm-41c956cf";
+import { reloadProducts } from "../data.js?v=adm-41c956cf";
+import { openImageCropper } from "../image-cropper.js?v=adm-41c956cf";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
