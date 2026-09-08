@@ -11,12 +11,12 @@
    `pending` y solo viajan los campos que realmente tocó, para no pisar precios
    que ni miró.
    ============================================================================ */
-import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-ee26d7ee";
-import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-ee26d7ee";
-import { setView } from "../view.js?v=adm-ee26d7ee";
-import { confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
-import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
-import { canWrite, canManagePricing } from "../permissions.js?v=adm-ee26d7ee";
+import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-ef5d81a9";
+import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-ef5d81a9";
+import { setView } from "../view.js?v=adm-ef5d81a9";
+import { confirmModal, toast } from "../ui.js?v=adm-ef5d81a9";
+import { reloadProducts } from "../data.js?v=adm-ef5d81a9";
+import { canWrite, canManagePricing } from "../permissions.js?v=adm-ef5d81a9";
 
 /* Los tres precios, en un solo sitio: la tabla, las cards y el guardado leen de
    acá, así que sumar un cuarto precio sería tocar solo esta lista. */
@@ -362,9 +362,21 @@ function wirePendingBar(view, can) {
 /* ----------------------------- guardado ----------------------------- */
 /* Valida TODO antes de escribir nada: si una celda está mal, no se envía ningún
    producto. Guardar media tanda es peor que no guardar nada. */
+/* Mismo criterio que en data.js: si el js/db.js que bajó el navegador es viejo
+   y no trae parsePrice, se valida con una copia local en vez de reventar. */
+function parsePrice(raw, label) {
+  const fn = window.catalogDb && window.catalogDb.parsePrice;
+  if (typeof fn === "function") return fn(raw, label);
+  if (raw == null || String(raw).trim() === "") return null;
+  const n = Number(String(raw).trim().replace(",", "."));
+  if (!Number.isFinite(n)) throw new Error(`${label} no es un número válido.`);
+  if (n < 0) throw new Error(`${label} no puede ser negativo.`);
+  return n;
+}
+
 function validatePending() {
   invalid.clear();
-  const parse = window.catalogDb.parsePrice;
+  const parse = parsePrice;
   const problems = [];
 
   for (const [id, draft] of pending) {
@@ -390,8 +402,7 @@ function validatePending() {
 /* Avisos que NO bloquean: casi siempre son un error de tecleo, pero puede haber
    una razón. Se muestran en la confirmación y decide el admin. */
 function warningsFor() {
-  const parse = window.catalogDb.parsePrice;
-  const num = (raw) => { try { return parse(raw, "x"); } catch (_) { return null; } };
+  const num = (raw) => { try { return parsePrice(raw, "x"); } catch (_) { return null; } };
   const out = [];
 
   for (const [id, draft] of pending) {

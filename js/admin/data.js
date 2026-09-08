@@ -2,7 +2,7 @@
    Carga de datos desde window.catalogDb (Supabase) hacia el estado central.
    Degradación elegante: si una fuente falla, marca el feature como no soportado.
    ============================================================================ */
-import { state } from "./state.js?v=adm-ee26d7ee";
+import { state } from "./state.js?v=adm-ef5d81a9";
 
 export async function loadAll() {
   const db = window.catalogDb;
@@ -10,7 +10,11 @@ export async function loadAll() {
     db.getProductsWithFlavors({ audit: true, cache: false, includeInactive: true }).catch((e) => { console.warn(e); return []; }),
     db.getAllCategories().catch(() => { state.categoriesSupported = false; return []; }),
     db.getAdminProfiles().catch(() => []),
-    db.pricingEnabled().catch(() => false),
+    // Defensivo a propósito: si el navegador se quedó con un js/db.js viejo en
+    // caché, esta función puede no existir todavía. Llamarla a secas tiraba
+    // abajo el arranque del panel ENTERO por una sección; así, como mucho, no
+    // hay precios internos hasta que baje el js nuevo.
+    (typeof db.pricingEnabled === "function" ? db.pricingEnabled() : Promise.resolve(false)).catch(() => false),
   ]);
   state.products = products || [];
   state.categories = categories || [];
