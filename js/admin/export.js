@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-ee956e57";
+import { esc } from "./helpers.js?v=adm-e87897bb";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
