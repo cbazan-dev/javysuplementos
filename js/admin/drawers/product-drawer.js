@@ -3,12 +3,12 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-48338db8";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-48338db8";
-import { $, esc, ico } from "../helpers.js?v=adm-48338db8";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-48338db8";
-import { requestRerender } from "../shell.js?v=adm-48338db8";
-import { reloadProducts } from "../data.js?v=adm-48338db8";
+import { state, catById, families, typesOf } from "../state.js?v=adm-3ae53034";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-3ae53034";
+import { $, esc, ico } from "../helpers.js?v=adm-3ae53034";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-3ae53034";
+import { requestRerender } from "../shell.js?v=adm-3ae53034";
+import { reloadProducts } from "../data.js?v=adm-3ae53034";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
@@ -133,11 +133,12 @@ export function openProductDrawer(product, opts = {}) {
             </div>
           `)}
           ${sec("precio", `
+            <p class="ad-price-scope" data-price-scope></p>
             <div class="ad-form-grid">
               ${field("Precio actual", true, affix(`<input class="ad-input" inputmode="decimal" data-f="price" value="${esc(data.price)}" placeholder="0.00" />`), "price")}
               ${field("Precio anterior", false, affix(`<input class="ad-input" inputmode="decimal" data-f="old_price" value="${esc(data.old_price)}" placeholder="0.00" />`), "old_price", "Para mostrar oferta")}
             </div>
-            <span class="ad-pill ad-pill--home" data-offer-pill style="justify-self:start;display:none"></span>
+            <span class="ad-pill ad-pill--offer" data-offer-pill hidden></span>
           `)}
           ${sec("imagen", `<div data-image-slot></div>`)}
           ${sec("sabores", `
@@ -359,19 +360,45 @@ export function openProductDrawer(product, opts = {}) {
   });
   fEl("type").addEventListener("change", (e) => { typeId = e.target.value; });
 
-  // offer pill live
-  const updateOfferPill = () => {
+  // Recordatorio de QUÉ se está poniendo en precio: nombre + presentación. Ambos
+  // viven en la sección 1, así que se refresca en vivo mientras se escriben.
+  const priceScope = get("[data-price-scope]");
+  const updatePriceScope = () => {
+    const name = (fEl("name").value || "").trim();
+    const pres = (fEl("presentation").value || "").trim();
+    priceScope.innerHTML =
+      `<span class="ad-price-scope__label">Precio de</span>` +
+      `<strong>${esc(name || "producto sin nombre")}</strong>` +
+      (pres
+        ? `<span class="ad-price-scope__pres">${esc(pres)}</span>`
+        : `<span class="ad-price-scope__pres is-empty">Sin presentación</span>`);
+  };
+  fEl("name").addEventListener("input", updatePriceScope);
+  fEl("presentation").addEventListener("input", updatePriceScope);
+  updatePriceScope();
+
+  // offer pill live — entra/sale con transición (ver .ad-pill--offer) para que
+  // no aparezca de golpe mientras se teclea el precio.
+  const offerPill = get("[data-offer-pill]");
+  const updateOfferPill = (animate = true) => {
     const price = Number(fEl("price").value);
     const old = Number(fEl("old_price").value);
-    const pill = get("[data-offer-pill]");
     if (price > 0 && old > price) {
-      pill.style.display = "inline-flex";
-      pill.textContent = `Oferta -${Math.round((1 - price / old) * 100)}%`;
-    } else { pill.style.display = "none"; }
+      offerPill.textContent = `Oferta -${Math.round((1 - price / old) * 100)}%`;
+      offerPill.hidden = false;
+      // un frame de margen para que el navegador anime desde el estado oculto
+      if (animate) window.requestAnimationFrame(() => offerPill.classList.add("is-on"));
+      else offerPill.classList.add("is-on");
+    } else {
+      offerPill.classList.remove("is-on");
+    }
   };
+  offerPill.addEventListener("transitionend", (e) => {
+    if (e.propertyName === "opacity" && !offerPill.classList.contains("is-on")) offerPill.hidden = true;
+  });
   fEl("price").addEventListener("input", () => { updateOfferPill(); if (touched) validate(); });
   fEl("old_price").addEventListener("input", () => { updateOfferPill(); if (touched) validate(); });
-  updateOfferPill();
+  updateOfferPill(false); // al abrir el drawer el estado inicial no se anima
 
   // image slot
   const imageSlot = get("[data-image-slot]");

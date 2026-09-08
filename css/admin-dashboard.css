@@ -410,6 +410,36 @@ body.ad-body { min-height: 100vh; }
 .ad-pill--out { background: rgba(255,79,118,0.14); color: #ffc1ce; }
 .ad-pill--home { background: rgba(90,180,233,0.16); color: #d2ecff; }
 
+/* Pill de oferta del drawer de producto: entra y sale con transición para que
+   no aparezca de golpe mientras se teclea el precio. */
+.ad-pill--offer {
+  justify-self: start;
+  background: rgba(90,180,233,0.16);
+  color: #d2ecff;
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  transition: opacity .18s ease, transform .18s cubic-bezier(.4,0,.2,1);
+}
+.ad-pill--offer.is-on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ad-pill--offer { transition: none; transform: none; }
+}
+
+/* Línea "Precio de <producto> · <presentación>" en la sección Precio. */
+.ad-price-scope {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin: 0; min-width: 0;
+  font-size: 0.82rem; color: var(--pb-muted);
+}
+.ad-price-scope strong { color: var(--pb-text); font-weight: 700; }
+.ad-price-scope__label { color: var(--pb-muted-2); }
+.ad-price-scope__pres {
+  display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px;
+  border-radius: 999px; background: var(--pb-blue-tint-12); color: #d2ecff;
+  font-size: 0.74rem; font-weight: 700;
+}
+.ad-price-scope__pres.is-empty { background: var(--pb-white-06); color: var(--pb-muted-2); font-weight: 600; }
+
 /* ---- mobile bottom nav (hidden on desktop) ---- */
 .ad-tabbar { display: none; }
 .ad-sheet { display: none; }
