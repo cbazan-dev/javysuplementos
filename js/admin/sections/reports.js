@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-d93a4d8b";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-d93a4d8b";
-import { paint } from "../view.js?v=adm-d93a4d8b";
-import { toast } from "../ui.js?v=adm-d93a4d8b";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-d93a4d8b";
+import { state, catById, families, typesOf } from "../state.js?v=adm-41c956cf";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-41c956cf";
+import { paint } from "../view.js?v=adm-41c956cf";
+import { toast } from "../ui.js?v=adm-41c956cf";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-41c956cf";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -301,6 +301,13 @@ function categoryLabel(p) {
   return p.category || (p.category_id ? (catById(p.category_id)?.name || "—") : "—");
 }
 
+// Subcategoría del producto (Whey, ISO, saborizada…). Vacía si el producto está
+// cargado directo en la familia: ahí no hay escalón que mostrar.
+function subfamilyLabel(p) {
+  const cat = p.category_id ? catById(p.category_id) : null;
+  return cat?.parent_id ? (cat.name || "") : "";
+}
+
 // Sube por la jerarquía hasta la familia (categoría principal). Solo se usa al
 // exportar: en pantalla los informes siguen mostrando la categoría del producto.
 function familyLabel(p) {
@@ -317,7 +324,11 @@ function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.pric
   return products.map((p) => ({
     name: p.name || "—",
     brand: p.brand || "",
+    // La presentación (5 lb, 60 cápsulas…) distingue dos productos que en el
+    // PDF se llaman igual: sin ella, quien recibe la lista no sabe cuál es cuál.
+    presentation: p.presentation || "",
     category: familyLabel(p),
+    subcategory: subfamilyLabel(p),
     price: price(p),
     detail: detail(p),
     image: p.image || "",
