@@ -6,7 +6,7 @@
    (is_staff / can_write / can_manage_users). Si alguien esquiva la UI, la base
    de datos lo frena igual.
    ============================================================================ */
-import { state } from "./state.js?v=adm-aabdc4b7";
+import { state } from "./state.js?v=adm-922c03ee";
 
 export const ROLES = [
   { value: "admin",  label: "Admin",  hint: "Acceso total, incluida la gestión de usuarios" },

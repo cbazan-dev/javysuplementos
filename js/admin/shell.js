@@ -5,20 +5,20 @@
    Mantiene un registro key → renderFn; las secciones piden re-render con
    requestRerender() en vez de llamarse entre sí.
    ============================================================================ */
-import { state } from "./state.js?v=adm-aabdc4b7";
-import { NAV } from "./config.js?v=adm-aabdc4b7";
-import { $, $$, esc, ico } from "./helpers.js?v=adm-aabdc4b7";
-import { showViewError } from "./view.js?v=adm-aabdc4b7";
-import { renderDashboard } from "./sections/dashboard.js?v=adm-aabdc4b7";
-import { renderProducts } from "./sections/products.js?v=adm-aabdc4b7";
-import { renderPricing } from "./sections/pricing.js?v=adm-aabdc4b7";
-import { renderHome } from "./sections/home.js?v=adm-aabdc4b7";
-import { renderCategories } from "./sections/categories.js?v=adm-aabdc4b7";
-import { renderAccess } from "./sections/access.js?v=adm-aabdc4b7";
-import { renderSettings } from "./sections/settings.js?v=adm-aabdc4b7";
-import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-aabdc4b7";
-import { canWrite } from "./permissions.js?v=adm-aabdc4b7";
-import { renderUserChip } from "./user-chip.js?v=adm-aabdc4b7";
+import { state } from "./state.js?v=adm-922c03ee";
+import { NAV } from "./config.js?v=adm-922c03ee";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-922c03ee";
+import { showViewError } from "./view.js?v=adm-922c03ee";
+import { renderDashboard } from "./sections/dashboard.js?v=adm-922c03ee";
+import { renderProducts } from "./sections/products.js?v=adm-922c03ee";
+import { renderPricing } from "./sections/pricing.js?v=adm-922c03ee";
+import { renderHome } from "./sections/home.js?v=adm-922c03ee";
+import { renderCategories } from "./sections/categories.js?v=adm-922c03ee";
+import { renderAccess } from "./sections/access.js?v=adm-922c03ee";
+import { renderSettings } from "./sections/settings.js?v=adm-922c03ee";
+import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-922c03ee";
+import { canWrite } from "./permissions.js?v=adm-922c03ee";
+import { renderUserChip } from "./user-chip.js?v=adm-922c03ee";
 
 const renderers = {
   dashboard: renderDashboard, products: renderProducts, pricing: renderPricing,
