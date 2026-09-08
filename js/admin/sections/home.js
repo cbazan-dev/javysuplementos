@@ -1,13 +1,13 @@
 /* ============================================================================
    Sección Inicio: curación de los productos destacados del home (orden + cupo).
    ============================================================================ */
-import { state } from "../state.js?v=adm-c9944bbc";
-import { HOME_MAX, HOME_MIN } from "../config.js?v=adm-c9944bbc";
-import { $, esc, ico, imgTag, peso } from "../helpers.js?v=adm-c9944bbc";
-import { setView } from "../view.js?v=adm-c9944bbc";
-import { bindEditClicks } from "../shell.js?v=adm-c9944bbc";
-import { toast } from "../ui.js?v=adm-c9944bbc";
-import { reloadProducts } from "../data.js?v=adm-c9944bbc";
+import { state } from "../state.js?v=adm-ee956e57";
+import { HOME_MAX, HOME_MIN } from "../config.js?v=adm-ee956e57";
+import { $, esc, ico, imgTag, peso } from "../helpers.js?v=adm-ee956e57";
+import { setView } from "../view.js?v=adm-ee956e57";
+import { bindEditClicks } from "../shell.js?v=adm-ee956e57";
+import { toast } from "../ui.js?v=adm-ee956e57";
+import { reloadProducts } from "../data.js?v=adm-ee956e57";
 
 export function renderHome() {
   const curados = () => state.products
