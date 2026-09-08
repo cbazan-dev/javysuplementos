@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-d93a4d8b";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-d93a4d8b";
-import { paint } from "../view.js?v=adm-d93a4d8b";
-import { toast } from "../ui.js?v=adm-d93a4d8b";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-d93a4d8b";
+import { state, catById, families, typesOf } from "../state.js?v=adm-3618d20f";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-3618d20f";
+import { paint } from "../view.js?v=adm-3618d20f";
+import { toast } from "../ui.js?v=adm-3618d20f";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-3618d20f";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -317,6 +317,9 @@ function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.pric
   return products.map((p) => ({
     name: p.name || "—",
     brand: p.brand || "",
+    // La presentación (5 lb, 60 cápsulas…) distingue dos productos que en el
+    // PDF se llaman igual: sin ella, quien recibe la lista no sabe cuál es cuál.
+    presentation: p.presentation || "",
     category: familyLabel(p),
     price: price(p),
     detail: detail(p),

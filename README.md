@@ -336,8 +336,9 @@ En **Ajustes → Informes**, la *Lista de precios a medida* es el único generad
 filtros (disponibilidad, categoría, marca y filtro extra) deciden qué productos entran y las
 casillas, qué precios se incluyen. La tabla en pantalla suma una columna por precio; en el PDF
 (formato catálogo) el primero que se pidió va como precio destacado y los demás, rotulados, en la
-línea de detalle. Los que no estén asignados salen como `—`, y si el informe lleva precios internos
-el propio documento lo advierte.
+línea de detalle. Bajo el nombre de cada producto van su marca y su presentación (`ON · 5 lb`), para
+distinguir dos formatos del mismo producto. Los precios que no estén asignados salen como `—`, y si
+el informe lleva precios internos el propio documento lo advierte.
 
 ---
 

@@ -8,7 +8,7 @@
    La marca de actividad se comparte entre pestañas vía localStorage, así que estar
    activo en cualquier pestaña del panel mantiene viva la sesión en todas.
    ============================================================================ */
-import { $, esc } from "./helpers.js?v=adm-d93a4d8b";
+import { $, esc } from "./helpers.js?v=adm-3618d20f";
 
 const IDLE_MS = 30 * 60 * 1000; // 30 min de inactividad → cierre de sesión
 const WARN_MS = 60 * 1000;      // avisar 1 min antes del cierre

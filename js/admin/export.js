@@ -3,7 +3,7 @@
    y generación de PDF (jsPDF + autotable, vendorizados en js/vendor) con guardado
    en el dispositivo o compartir nativo (Web Share API).
    ============================================================================ */
-import { esc } from "./helpers.js?v=adm-d93a4d8b";
+import { esc } from "./helpers.js?v=adm-3618d20f";
 
 const PDF = {
   ink: [13, 25, 39], muted: [91, 108, 125], line: [220, 227, 234],
@@ -161,6 +161,12 @@ export function buildTable(columns, rows, className = "") {
   return `<table${className ? ` class="${className}"` : ""}>${head}${body}</table>`;
 }
 
+// Segunda línea del producto en los informes de catálogo (PDF e impresión):
+// marca y presentación, lo que haya de cada una.
+function subtitulo(item) {
+  return [item.brand, item.presentation].filter(Boolean).join(" · ");
+}
+
 // Arma el PDF del informe y lo devuelve como Blob. Los informes de catálogo
 // pueden pasar products sin cambiar la tabla que se ve en la web.
 // `options.orientation`: "landscape" para informes anchos (la lista de precios
@@ -203,7 +209,8 @@ export async function buildReportPDF(title, meta, columns, rows, options = {}) {
     const head = detailLabel ? ["", "Producto", "Precio actual", detailLabel] : ["", "Producto", "Precio actual"];
     const tableWidth = size(doc).width - MARGIN * 2;
     const body = group.map((item) => {
-      const product = item.brand ? `${item.name || "—"}\n${item.brand}` : (item.name || "—");
+      const linea2 = subtitulo(item);
+      const product = linea2 ? `${item.name || "—"}\n${linea2}` : (item.name || "—");
       return detailLabel ? [item.image || "", product, item.price || "Consultar", item.detail || "—"] : [item.image || "", product, item.price || "Consultar"];
     });
     doc.autoTable({
@@ -302,7 +309,7 @@ function printCatalog(items, detailLabel = "") {
       <table><thead><tr><th class="image-col"></th><th>Producto</th><th class="price-col">Precio actual</th>${detailLabel ? `<th>${esc(detailLabel)}</th>` : ""}</tr></thead>
       <tbody>${products.map((item) => `<tr>
         <td class="image-col">${isRealImage(item.image) ? `<img src="${esc(absoluteUrl(item.image))}" alt="" />` : ""}</td>
-        <td><strong>${esc(item.name || "—")}</strong>${item.brand ? `<small>${esc(item.brand)}</small>` : ""}</td>
+        <td><strong>${esc(item.name || "—")}</strong>${subtitulo(item) ? `<small>${esc(subtitulo(item))}</small>` : ""}</td>
         <td class="price-col">${esc(item.price || "Consultar")}</td>${detailLabel ? `<td>${esc(item.detail || "—")}</td>` : ""}
       </tr>`).join("")}</tbody></table>
     </section>`).join("");
