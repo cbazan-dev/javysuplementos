@@ -2,11 +2,11 @@
    Sección Ajustes con pestañas: Estado del sistema · Historial · Informes.
    La pestaña activa vive en state.settingsTab; cambiarla re-renderiza la sección.
    ============================================================================ */
-import { state, families } from "../state.js?v=adm-7d237d02";
-import { esc, ico } from "../helpers.js?v=adm-7d237d02";
-import { setView, paint } from "../view.js?v=adm-7d237d02";
-import { renderHistoryTab } from "./history.js?v=adm-7d237d02";
-import { renderReportsTab } from "./reports.js?v=adm-7d237d02";
+import { state, families } from "../state.js?v=adm-ee26d7ee";
+import { esc, ico } from "../helpers.js?v=adm-ee26d7ee";
+import { setView, paint } from "../view.js?v=adm-ee26d7ee";
+import { renderHistoryTab } from "./history.js?v=adm-ee26d7ee";
+import { renderReportsTab } from "./reports.js?v=adm-ee26d7ee";
 
 const TABS = [
   { key: "estado", label: "Estado", icon: "settings" },
@@ -47,10 +47,10 @@ function renderStatusTab(body) {
   // JAVY_WHATSAPP_NUMBER es un global lexical de js/whatsapp-config.js (script clásico).
   const wa = (typeof JAVY_WHATSAPP_NUMBER !== "undefined" && JAVY_WHATSAPP_NUMBER) || "—";
   const cards = [
-    { label: "Base de datos", value: "Operativa", tone: "ok", hint: "Productos, categorías y combos en Supabase" },
+    { label: "Base de datos", value: "Operativa", tone: "ok", hint: "Productos y categorías en Supabase" },
     { label: "WhatsApp cotizaciones", value: wa !== "—" ? "Conectado" : "Sin configurar", tone: wa !== "—" ? "ok" : "warn", hint: `Número: +${esc(wa)}` },
     { label: "Almacenamiento de imágenes", value: "Activo", tone: "ok", hint: "Bucket product-images" },
-    { label: "Catálogo", value: `${state.products.length} productos`, tone: "ok", hint: `${state.combos.length} combos · ${families().length} familias` },
+    { label: "Catálogo", value: `${state.products.length} productos`, tone: "ok", hint: `${families().length} familias` },
   ];
   paint(body, `
     <div class="ad-section-intro">

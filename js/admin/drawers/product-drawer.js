@@ -3,17 +3,44 @@
    imagen, chips de sabores/tags, objetivos, validación inline y guardado con
    sincronización de sabores. Comportamiento idéntico al monolito original.
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-7d237d02";
-import { canManagePricing } from "../permissions.js?v=adm-7d237d02";
-import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-7d237d02";
-import { $, esc, ico } from "../helpers.js?v=adm-7d237d02";
-import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-7d237d02";
-import { requestRerender } from "../shell.js?v=adm-7d237d02";
-import { reloadProducts } from "../data.js?v=adm-7d237d02";
+import { state, catById, families, typesOf } from "../state.js?v=adm-ee26d7ee";
+import { canManagePricing } from "../permissions.js?v=adm-ee26d7ee";
+import { PLACEHOLDER, HOME_MAX, GOAL_SUGGESTIONS } from "../config.js?v=adm-ee26d7ee";
+import { $, esc, ico } from "../helpers.js?v=adm-ee26d7ee";
+import { field, affix, switchRow, switchMarkup, chipTag, bindChips, confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
+import { requestRerender } from "../shell.js?v=adm-ee26d7ee";
+import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
+import { openImageCropper } from "../image-cropper.js?v=adm-ee26d7ee";
 
 // Arreglos de texto (beneficios/uso/descripción) ⇄ textarea (una línea por ítem).
 const linesToText = (v) => Array.isArray(v) ? v.join("\n") : (v || "");
 const textToLines = (v) => String(v || "").split("\n").map((s) => s.trim()).filter(Boolean);
+
+/* Posición del producto entre los destacados del home.
+
+   Esto arregla el bug que desordenaba el inicio solo. Antes era
+   `values.home_order || null`: con el campo "Orden en inicio" vacío -que es
+   como queda siempre que el orden se curó desde la sección Inicio, porque esa
+   pantalla no escribe en este formulario- se guardaba null. Y un null hace que
+   getHomeProducts() (js/db.js) mande el producto al fondo con valor 999 y
+   reordene alfabéticamente. O sea: bastaba editarle el precio a un producto
+   destacado para que el orden de todo el home se rompiera.
+
+   Ahora, con el campo vacío: si el producto ya tenía posición se conserva, y si
+   recién entra al inicio se le da la siguiente libre en vez de dejarlo sin. */
+function resolveHomeOrder(typed, data) {
+  const escrito = Number(String(typed || "").trim());
+  if (Number.isFinite(escrito) && escrito > 0) return escrito;
+
+  const previo = Number(data.home_order);
+  if (Number.isFinite(previo) && previo > 0) return previo;
+
+  const ocupados = state.products
+    .filter((p) => p.show_on_home && String(p.id) !== String(data.id))
+    .map((p) => Number(p.home_order))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return ocupados.length ? Math.max(...ocupados) + 1 : 1;
+}
 
 export function openProductDrawer(product, opts = {}) {
   const isNew = !product || !product.id;
@@ -25,7 +52,7 @@ export function openProductDrawer(product, opts = {}) {
     presentation: product ? product.presentation || "" : "",
     price: product && product.price ? String(product.price) : "",
     old_price: product && product.old_price ? String(product.old_price) : "",
-    // Internos (Fase 10). Se comparan con != null, no por verdadero: un precio
+    // Internos (Fase 12). Se comparan con != null, no por verdadero: un precio
     // en 0 es un valor asignado y no debe abrirse como si estuviera vacío.
     reseller_price: product && product.reseller_price != null ? String(product.reseller_price) : "",
     javy_price: product && product.javy_price != null ? String(product.javy_price) : "",
@@ -73,7 +100,7 @@ export function openProductDrawer(product, opts = {}) {
 
   const metaLine = (!isNew && product.updated_by)
     ? `${esc(product.brand || "")} · última edición por ${esc(product.updated_by)}`
-    : (isNew ? (opts.duplicateOf ? `Copia de ${esc(opts.duplicateOf)}` : "Completá los datos esenciales") : esc(product.brand || "Editar producto"));
+    : (isNew ? (opts.duplicateOf ? `Copia de ${esc(opts.duplicateOf)}` : "Completa los datos esenciales") : esc(product.brand || "Editar producto"));
 
   function familyOptions() {
     return `<option value="">Elegir…</option>` + families().map((f) => `<option value="${esc(f.id)}"${f.id === famId ? " selected" : ""}>${esc(f.name)}</option>`).join("");
@@ -91,6 +118,22 @@ export function openProductDrawer(product, opts = {}) {
   }
 
   // Secciones del modal: [key, número, etiqueta corta (índice), título largo (encabezado)].
+  /* Precios internos (Fase 12). Van en la misma sección que el precio de venta
+     —es donde el admin los busca— pero separados y rotulados, porque no son
+     públicos y no tocan la oferta. Si la migración no está aplicada, el bloque
+     ni aparece. Editarlos es cosa de Admin; el resto del equipo los ve. */
+  const canEditPricing = canManagePricing() && state.pricingSupported;
+  const internalPricesHTML = !state.pricingSupported ? "" : `
+    <div class="ad-subgroup">
+      <p class="ad-subgroup__title">Precios internos</p>
+      <p class="ad-subgroup__hint">No se muestran en la tienda ni afectan la oferta. Pueden quedar vacíos y cargarse después desde la sección Precios.</p>
+      <div class="ad-form-grid">
+        ${field("Precio revendedor", false, affix(`<input class="ad-input" inputmode="decimal" data-f="reseller_price" value="${esc(data.reseller_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "reseller_price")}
+        ${field("Precio Javy", false, affix(`<input class="ad-input" inputmode="decimal" data-f="javy_price" value="${esc(data.javy_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "javy_price")}
+      </div>
+      ${canEditPricing ? "" : `<span class="ad-field__help">Solo un Admin puede modificarlos.</span>`}
+    </div>`;
+
   const SECS = [
     ["esencial", 1, "Esencial", "Información esencial"],
     ["precio", 2, "Precio", "Precio y oferta"],
@@ -110,22 +153,6 @@ export function openProductDrawer(product, opts = {}) {
       <div class="ad-modal__sec-body">${body}</div>
     </section>`;
   };
-
-  /* Precios internos (Fase 10). Van en la misma sección que el precio de venta
-     —es donde el admin los busca— pero separados y rotulados, porque no son
-     públicos y no tocan la oferta. Si la migración no está aplicada, el bloque
-     ni aparece. Editarlos es cosa de Admin; el resto del equipo los ve. */
-  const canEditPricing = canManagePricing() && state.pricingSupported;
-  const internalPricesHTML = !state.pricingSupported ? "" : `
-    <div class="ad-subgroup">
-      <p class="ad-subgroup__title">Precios internos</p>
-      <p class="ad-subgroup__hint">No se muestran en la tienda ni afectan la oferta. Pueden quedar vacíos y cargarse después desde la sección Precios.</p>
-      <div class="ad-form-grid">
-        ${field("Precio revendedor", false, affix(`<input class="ad-input" inputmode="decimal" data-f="reseller_price" value="${esc(data.reseller_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "reseller_price")}
-        ${field("Precio Javy", false, affix(`<input class="ad-input" inputmode="decimal" data-f="javy_price" value="${esc(data.javy_price)}" placeholder="Sin asignar"${canEditPricing ? "" : " disabled"} />`), "javy_price")}
-      </div>
-      ${canEditPricing ? "" : `<span class="ad-field__help">Solo un Admin puede modificarlos.</span>`}
-    </div>`;
 
   const manualTextField = (label, dataF, value, placeholder, help, className = "") => `
     <div class="ad-field">
@@ -172,7 +199,7 @@ export function openProductDrawer(product, opts = {}) {
                   <button class="ad-btn ad-btn--ghost ad-btn--sm" type="button" data-flavor-add-btn>${ico("plus")}Agregar</button>
                 </div>
                 <span class="ad-field__error" data-flavor-msg></span>
-              `, null, "Marcá cada sabor como disponible o agotado")}
+              `, null, "Marca cada sabor como disponible o agotado")}
             </div>
           `)}
           ${sec("descripcion", `
@@ -191,7 +218,7 @@ export function openProductDrawer(product, opts = {}) {
               ${switchRow("featured", "Destacado", "Resalta el producto en su categoría", data.featured)}
               ${switchRow("home", "Mostrar en inicio", "Aparece entre los productos del home (máx. " + HOME_MAX + ")", data.home)}
             </div>
-            <div data-home-order-slot>${data.home ? field("Orden en inicio", false, `<input class="ad-input" inputmode="numeric" data-f="home_order" value="${esc(data.home_order)}" placeholder="Ej. 1" style="max-width:120px" />`, null, "Posición entre los destacados del home") : ""}</div>
+            <div data-home-order-slot>${data.home ? field("Orden en inicio", false, `<input class="ad-input" inputmode="numeric" data-f="home_order" value="${esc(data.home_order)}" placeholder="Déjalo vacío y se acomoda solo" style="max-width:220px" />`, null, "Vacío = conserva la posición que ya tenía, o va al final si es nuevo.") : ""}</div>
           `)}
         </div>
         <aside class="ad-modal__preview" aria-label="Vista previa del producto">
@@ -229,7 +256,13 @@ export function openProductDrawer(product, opts = {}) {
     const name = (fEl("name").value || "").trim() || "Nombre del producto";
     const brand = (fEl("brand").value || "").trim() || "Marca";
     const pres = (fEl("presentation").value || "").trim();
-    const category = catById(typeId || famId)?.name || "Categoría";
+    const selectedCategory = catById(typeId || famId);
+    const familyCategory = selectedCategory?.parent_id ? catById(selectedCategory.parent_id) : selectedCategory;
+    const category = selectedCategory?.name || "Categoría";
+    const cardCategory = [
+      familyCategory?.name,
+      selectedCategory?.id !== familyCategory?.id ? selectedCategory?.name : "",
+    ].filter(Boolean).join(" · ") || category;
     const shortDescription = (fEl("description_short").value || "").trim();
     const longDescription = (fEl("description_long").value || "").trim();
     const benefits = textToLines(fEl("beneficios").value);
@@ -276,7 +309,7 @@ export function openProductDrawer(product, opts = {}) {
             </section>
           </div>
         </article>`;
-      get("[data-preview-note]").textContent = "El detalle refleja la información editorial mientras escribís; las secciones vacías se ocultarán en la tienda.";
+      get("[data-preview-note]").textContent = "El detalle refleja la información editorial mientras escribes; las secciones vacías se ocultarán en la tienda.";
       return;
     }
 
@@ -291,6 +324,7 @@ export function openProductDrawer(product, opts = {}) {
             <span class="product-card__brand">${esc(brand)}</span>
             <span class="product-card__status ${available ? "is-available" : "is-agotado"}">${available ? "Disponible" : "Agotado"}</span>
           </div>
+          <span class="product-card__category">${esc(cardCategory)}</span>
           <h3 class="product-card__name">${esc(name)}</h3>
           <div class="product-card__price-row">
             <span class="product-card__price-group">
@@ -305,7 +339,7 @@ export function openProductDrawer(product, opts = {}) {
           <span class="product-card__detail-link">Ver detalles</span>
         </div>
       </article>`;
-    get("[data-preview-note]").textContent = "La card muestra imagen, marca, disponibilidad, nombre, precio, oferta y presentación. Categorías, objetivos y tags se usan para búsqueda y filtros.";
+    get("[data-preview-note]").textContent = "La card muestra imagen, marca, categoría, disponibilidad, nombre, precio, oferta y presentación.";
   }
 
   // navegación por secciones: índice lateral + scroll-spy (resalta la sección visible)
@@ -337,7 +371,7 @@ export function openProductDrawer(product, opts = {}) {
     overlay.remove();
   }
   async function close() {
-    if (dirty && !(await confirmModal({ title: "Descartar cambios", body: "Tenés cambios sin guardar. ¿Querés descartarlos?", confirmLabel: "Descartar", danger: true }))) return;
+    if (dirty && !(await confirmModal({ title: "Descartar cambios", body: "Tienes cambios sin guardar. ¿Quieres descartarlos?", confirmLabel: "Descartar", danger: true }))) return;
     destroy();
   }
   const onKey = (e) => {
@@ -349,7 +383,12 @@ export function openProductDrawer(product, opts = {}) {
 
   // cualquier cambio en el formulario marca el modal como "sucio" y refresca la preview
   content.addEventListener("input", () => { markDirty(); renderPreview(); });
-  content.addEventListener("change", () => { markDirty(); renderPreview(); });
+  content.addEventListener("change", (e) => {
+    // El input de archivo lo maneja setDraftImage(): si el admin abre el
+    // encuadre y cancela, el drawer no debe quedar marcado como sucio.
+    if (e.target.matches("[data-img-input]")) return;
+    markDirty(); renderPreview();
+  });
 
   overlay.querySelectorAll("[data-preview-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -390,27 +429,60 @@ export function openProductDrawer(product, opts = {}) {
 
   // image slot
   const imageSlot = get("[data-image-slot]");
+
+  // Única puerta de entrada para la imagen del draft. Mantiene la invariante
+  // "si hay draftImageFile.file, previewObjUrl es su objectURL vigente", que es
+  // lo que permite que renderImage() no fabrique un objectURL por render.
+  function setDraftImage(file) {
+    draftImageFile.file = file;
+    draftImageFile.cleared = false;
+    if (previewObjUrl) URL.revokeObjectURL(previewObjUrl);
+    previewObjUrl = URL.createObjectURL(file);
+    previewImgUrl = previewObjUrl;
+    markDirty();
+    renderImage();
+    renderPreview();
+  }
+
+  // Nombre legible para el archivo que sube al bucket (db.js arma el path con
+  // createSlug(file.name)): mejor "isomorph-28-whey" que "img-20260906-wa0031".
+  const cropFileName = () => (fEl("name").value || "").trim();
+
   function renderImage() {
-    const showSrc = draftImageFile.file ? URL.createObjectURL(draftImageFile.file)
+    const showSrc = draftImageFile.file ? previewObjUrl
       : (draftImageFile.cleared ? "" : data.image);
+    // Un SVG (el placeholder, sin ir más lejos) no tiene tamaño intrínseco y
+    // drawImage se vuelve impredecible, así que no se ofrece encuadrarlo.
+    const canRecrop = !!showSrc && showSrc !== PLACEHOLDER && !/\.svg(\?|$)/i.test(showSrc);
     if (showSrc) {
-      imageSlot.innerHTML = `<div class="ad-drop ad-drop--filled"><div class="ad-drop__preview"><img src="${esc(showSrc)}" alt="" /><button type="button" class="ad-btn ad-btn--ghost ad-btn--sm ad-drop__change" data-img-change>${ico("upload")}Cambiar</button></div></div>
+      imageSlot.innerHTML = `<div class="ad-drop ad-drop--filled"><div class="ad-drop__preview"><img src="${esc(showSrc)}" alt="" /><div class="ad-drop__tools">${canRecrop ? `<button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-recrop>${ico("grid")}Encuadre</button>` : ""}<button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-change>${ico("upload")}Cambiar</button></div></div></div>
         <button type="button" class="ad-btn ad-btn--ghost ad-btn--sm" data-img-clear style="margin-top:8px">${ico("trash")}Quitar imagen</button>
         <input type="file" accept="image/*" data-img-input hidden />`;
     } else {
-      imageSlot.innerHTML = `<label class="ad-drop">${ico("upload")}<strong>Subir imagen del producto</strong><small>PNG o WebP con fondo transparente · tocá para elegir</small><input type="file" accept="image/*" data-img-input hidden /></label>`;
+      imageSlot.innerHTML = `<label class="ad-drop">${ico("upload")}<strong>Subir imagen del producto</strong><small>PNG o WebP con fondo transparente · vas a poder encuadrarla</small><input type="file" accept="image/*" data-img-input hidden /></label>`;
     }
     if (window.javyIcons) window.javyIcons.enhance(imageSlot);
     const input = imageSlot.querySelector("[data-img-input]");
-    input.addEventListener("change", (e) => {
+    input.addEventListener("change", async (e) => {
       const file = e.target.files[0];
-      if (file) {
-        draftImageFile.file = file; draftImageFile.cleared = false;
-        if (previewObjUrl) URL.revokeObjectURL(previewObjUrl);
-        previewObjUrl = URL.createObjectURL(file);
-        previewImgUrl = previewObjUrl;
-        renderImage(); renderPreview();
-      }
+      // Limpiar el input permite volver a elegir el MISMO archivo después de
+      // cancelar el encuadre; si no, el change no dispara y parece roto.
+      e.target.value = "";
+      if (!file) return;
+      const cropped = await openImageCropper({
+        file,
+        fileName: cropFileName() || file.name,
+        title: "Encuadrar imagen",
+      });
+      if (!cropped) return; // canceló: el draft queda como estaba
+      setDraftImage(cropped);
+    });
+    const recropBtn = imageSlot.querySelector("[data-img-recrop]");
+    if (recropBtn) recropBtn.addEventListener("click", async () => {
+      const cropped = draftImageFile.file
+        ? await openImageCropper({ file: draftImageFile.file, fileName: cropFileName() || draftImageFile.file.name })
+        : await openImageCropper({ src: data.image, fileName: cropFileName() || data.image });
+      if (cropped) setDraftImage(cropped);
     });
     const changeBtn = imageSlot.querySelector("[data-img-change]");
     if (changeBtn) changeBtn.addEventListener("click", () => input.click());
@@ -438,7 +510,7 @@ export function openProductDrawer(product, opts = {}) {
           ${switchMarkup(f.available, `data-flavor-toggle="${i}" aria-label="Disponible: ${esc(f.name)}"`)}
           <button class="ad-icon-btn ad-icon-btn--danger" type="button" data-flavor-del="${i}" title="Quitar">${ico("trash")}</button>
         </div>`).join("")
-      : `<p class="ad-flavor-empty">Sin sabores todavía. Agregá uno abajo.</p>`;
+      : `<p class="ad-flavor-empty">Sin sabores todavía. Agrega uno abajo.</p>`;
     if (window.javyIcons) window.javyIcons.enhance(flavorListEl);
     flavorListEl.querySelectorAll("[data-flavor-toggle]").forEach((cb) => cb.addEventListener("change", () => {
       flavorRows[+cb.getAttribute("data-flavor-toggle")].available = cb.checked; markDirty();
@@ -498,8 +570,12 @@ export function openProductDrawer(product, opts = {}) {
   homeSwitch.addEventListener("change", () => {
     const slot = get("[data-home-order-slot]");
     slot.innerHTML = homeSwitch.checked
-      ? field("Orden en inicio", false, `<input class="ad-input" inputmode="numeric" data-f="home_order" value="${esc(data.home_order)}" placeholder="Ej. 1" style="max-width:120px" />`, null, "Posición entre los destacados del home")
+      ? field("Orden en inicio", false, `<input class="ad-input" inputmode="numeric" data-f="home_order" value="${esc(data.home_order)}" placeholder="Déjalo vacío y se acomoda solo" style="max-width:220px" />`, null, "Vacío = conserva la posición que ya tenía, o va al final si es nuevo.")
       : "";
+    // El guardado fuerza featured cuando home está activo; se refleja acá para
+    // que el switch no muestre una cosa y la base termine con otra.
+    const featuredSwitch = overlay.querySelector('[data-sw="featured"]');
+    if (homeSwitch.checked && featuredSwitch) featuredSwitch.checked = true;
   });
 
   // validation
@@ -520,18 +596,18 @@ export function openProductDrawer(product, opts = {}) {
     const price = fEl("price").value.trim();
     const old = fEl("old_price").value.trim();
     return {
-      reseller_price: internalPriceError("reseller_price", "El precio revendedor"),
-      javy_price: internalPriceError("javy_price", "El precio Javy"),
       name: !fEl("name").value.trim() ? "El nombre es obligatorio" : "",
-      family: !famId ? "Elegí una familia" : "",
+      family: !famId ? "Elige una familia" : "",
       // Si la familia tiene subcategorías, hay que decidir: una de ellas o
       // "Sin subcategoría" a propósito. Dejarlo vacío es lo que vació el
       // segundo nivel del catálogo público.
       type: famId && typesOf(famId).length && !typeId
-        ? "Elegí una subcategoría (o marcá “Sin subcategoría”)"
+        ? "Elige una subcategoría (o marca “Sin subcategoría”)"
         : "",
       price: !price ? "El precio es obligatorio" : (isNaN(+price) || +price <= 0) ? "Precio inválido" : "",
       old_price: old && (isNaN(+old) || +old <= +price) ? "Debe ser mayor al precio actual" : "",
+      reseller_price: internalPriceError("reseller_price", "El precio revendedor"),
+      javy_price: internalPriceError("javy_price", "El precio Javy"),
     };
   }
   function validate() {
@@ -556,7 +632,7 @@ export function openProductDrawer(product, opts = {}) {
     if (!validate()) {
       const firstErr = railItems.find((b) => b.classList.contains("has-error"));
       if (firstErr) firstErr.click();
-      toast({ tone: "err", msg: "Revisá los campos marcados" });
+      toast({ tone: "err", msg: "Revisa los campos marcados" });
       return;
     }
     // aviso de duplicado al crear (mismo nombre + marca)
@@ -604,7 +680,7 @@ export function openProductDrawer(product, opts = {}) {
       saveBtn.innerHTML = `${ico("save")}${isNew ? "Crear producto" : "Guardar cambios"}`;
       if (window.javyIcons) window.javyIcons.enhance(saveBtn);
       if (e.code === "CONFLICT") {
-        const force = await confirmModal({ title: "Otro admin editó esto", body: "Otro administrador modificó este producto mientras lo editabas. ¿Querés sobrescribir sus cambios con los tuyos?", confirmLabel: "Sobrescribir", danger: true });
+        const force = await confirmModal({ title: "Otro admin editó esto", body: "Otro administrador modificó este producto mientras lo editabas. ¿Quieres sobrescribir sus cambios con los tuyos?", confirmLabel: "Sobrescribir", danger: true });
         if (force) { data.updated_at = null; doSave(); }
       } else {
         toast({ tone: "err", msg: "No se pudo guardar", sub: e.message });
@@ -652,10 +728,13 @@ async function saveProduct(ctx) {
     flavor_mode: values.flavor_mode,
     available: values.available,
     is_available: values.available,
-    featured: values.featured,
-    is_featured: values.featured,
+    // Estar curado en el inicio ES ser destacado: sin esto los dos campos se
+    // separaban y quedaban productos en el home con featured en false (que es
+    // justo lo que dejaba cards sin badge en la página principal).
+    featured: values.featured || values.home,
+    is_featured: values.featured || values.home,
     show_on_home: values.home,
-    home_order: values.home ? (values.home_order || null) : null,
+    home_order: values.home ? resolveHomeOrder(values.home_order, data) : null,
     tags: values.tags,
     goals: values.goals,
   };

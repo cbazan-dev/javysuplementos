@@ -1,11 +1,11 @@
 /* ============================================================================
    Sección Dashboard: stats, centro de operaciones y últimos agregados.
    ============================================================================ */
-import { state } from "../state.js?v=adm-7d237d02";
-import { STALE_DAYS, HOME_MAX, HOME_MIN } from "../config.js?v=adm-7d237d02";
-import { $, esc, ico, imgTag, peso, isAvailable, isMissingImage, hasOffer, discountPct, daysSince, agoLabel, missingInternalPrices } from "../helpers.js?v=adm-7d237d02";
-import { setView } from "../view.js?v=adm-7d237d02";
-import { go, bindEditClicks } from "../shell.js?v=adm-7d237d02";
+import { state } from "../state.js?v=adm-ee26d7ee";
+import { STALE_DAYS, HOME_MAX, HOME_MIN } from "../config.js?v=adm-ee26d7ee";
+import { $, esc, ico, imgTag, peso, isAvailable, isMissingImage, hasOffer, discountPct, daysSince, agoLabel, missingInternalPrices } from "../helpers.js?v=adm-ee26d7ee";
+import { setView } from "../view.js?v=adm-ee26d7ee";
+import { go, bindEditClicks } from "../shell.js?v=adm-ee26d7ee";
 
 export function renderDashboard() {
   const p = state.products;
@@ -15,8 +15,7 @@ export function renderDashboard() {
   const out = p.filter((x) => !isAvailable(x));
   const stale = out.filter((x) => daysSince(x.updated_at) >= STALE_DAYS);
   const noImg = p.filter(isMissingImage).length;
-  const activeCombos = state.combos.filter((c) => c.is_active).length;
-  // Productos a los que les falta algún precio interno (Fase 10).
+  // Productos a los que les falta algún precio interno (Fase 12).
   const sinPrecioInterno = state.pricingSupported
     ? p.filter((x) => { const m = missingInternalPrices(x); return m.reseller || m.javy; }).length
     : 0;
@@ -32,11 +31,9 @@ export function renderDashboard() {
       delta: out.length ? "requieren acción" : "todo disponible", dir: out.length ? "down" : "flat" },
     { key: "noimg", label: "Sin imagen", value: noImg, tone: noImg ? "bad" : "ok", icon: "upload",
       delta: noImg ? "faltan fotos" : "todas con foto", dir: noImg ? "down" : "flat" },
-    { key: "combos", label: "Combos activos", value: activeCombos, tone: "blue", icon: "package",
-      delta: `${state.combos.length} en total`, dir: "flat" },
   ];
 
-  // Solo si la migración fase10 está aplicada: sin ella el dato no existe y la
+  // Solo si la migración fase12 está aplicada: sin ella el dato no existe y la
   // tarjeta mentiría diciendo que no falta nada.
   if (state.pricingSupported) {
     stats.push({
@@ -114,7 +111,6 @@ export function renderDashboard() {
   view.querySelectorAll("[data-stat]").forEach((b) => b.addEventListener("click", () => {
     const k = b.getAttribute("data-stat");
     if (k === "home") return go("home");
-    if (k === "combos") return go("combos");
     if (k === "pricing") return go("pricing");
     if (k === "offers") { state.productFilter = "offers"; return go("products"); }
     if (k === "out") { state.productFilter = "out"; return go("products"); }

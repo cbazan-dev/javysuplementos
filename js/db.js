@@ -55,7 +55,7 @@ const PRODUCT_FLAVORS_FRAGMENT = `
   )
 `;
 
-// Precios internos (Fase 10): revendedor y Javy. Viven en la tabla aparte
+// Precios internos (Fase 12): revendedor y Javy. Viven en la tabla aparte
 // product_pricing, no en products, porque la politica de lectura de products es
 // publica. Igual que AUDIT_COLS, este fragmento SOLO se agrega al select del
 // admin: product_pricing no le da SELECT a anon, asi que pedirlo desde la web
@@ -69,21 +69,6 @@ const PRODUCT_PRICING_FRAGMENT = `
 
 const PRODUCT_SELECT = `${PRODUCT_BASE_SELECT}, ${PRODUCT_FLAVORS_FRAGMENT}`;
 const PRODUCT_SELECT_AUDIT = `${PRODUCT_BASE_SELECT}, ${AUDIT_COLS}, ${PRODUCT_FLAVORS_FRAGMENT}`;
-
-const COMBO_BASE_SELECT = `
-  id, name, slug, description, image_url, price, precio_centavos, old_price,
-  is_active, show_on_home, sort_order, created_at, updated_at`;
-
-const COMBO_ITEMS_FRAGMENT = `
-  combo_items (
-    id, product_id, flavor_id, quantity, sort_order,
-    products ( id, name, image_url, price, slug ),
-    product_flavors ( id, name )
-  )
-`;
-
-const COMBO_SELECT = `${COMBO_BASE_SELECT}, ${COMBO_ITEMS_FRAGMENT}`;
-const COMBO_SELECT_AUDIT = `${COMBO_BASE_SELECT}, ${AUDIT_COLS}, ${COMBO_ITEMS_FRAGMENT}`;
 
 const DB_PLACEHOLDER_IMAGE = "img/products/product-placeholder.svg";
 const PRODUCT_IMAGE_BUCKET = "product-images";
@@ -252,7 +237,7 @@ function normalizeProductFromDb(product) {
   const category = getUsefulText(product.category === "Producto" ? "" : product.category, product.categoria, product.tag) || "Producto";
   const presentation = product.presentation || product.presentacion || "";
   const price = Number(product.price ?? product.precio ?? (product.precio_centavos != null ? product.precio_centavos / 100 : 0));
-  // Precios internos (Fase 10). Llegan por el embed product_pricing, que solo
+  // Precios internos (Fase 12). Llegan por el embed product_pricing, que solo
   // pide el admin; en la web publica quedan en null y nadie los usa. PostgREST
   // puede devolver un embed 1:1 como objeto o como arreglo de un elemento.
   const pricingRow = Array.isArray(product.product_pricing)
@@ -477,9 +462,9 @@ async function auditStamp(includeCreated = false) {
   return includeCreated ? { created_by: email, updated_by: email } : { updated_by: email };
 }
 
-// ===== Precios internos (Fase 10) =====
+// ===== Precios internos (Fase 12) =====
 // Existe la tabla product_pricing? Se detecta una vez, igual que auditEnabled().
-// Si la migracion fase10 no se aplico, el panel sigue funcionando sin precios
+// Si la migracion fase12 no se aplico, el panel sigue funcionando sin precios
 // internos en vez de romperse. Devuelve false tambien para quien no tenga
 // permiso de leerla (la politica solo deja a los perfiles activos del panel).
 let pricingTableEnabled;
@@ -710,7 +695,7 @@ async function createCategory({ name, parentId = null, sortOrder = 100 }) {
     (c) => (c.name || "").trim().toLowerCase() === trimmed.toLowerCase(),
   );
   if (clash) {
-    throw new Error(`Ya existe «${clash.name}» en este nivel. Usá esa o elegí otro nombre.`);
+    throw new Error(`Ya existe «${clash.name}» en este nivel. Usa esa o elige otro nombre.`);
   }
   // Slug único: fam- para familias, tipo- para tipos, + base del nombre.
   const base = categorySlugify(trimmed) || "categoria";
@@ -938,9 +923,15 @@ async function updateHomeProducts(productIds = []) {
     throw new Error("No puedes mostrar mas de 8 productos en el inicio.");
   }
 
+  /* Se apaga SOLO la curación del inicio. Antes esta línea también ponía
+     is_featured/featured en false en TODO el catálogo, así que guardar el
+     inicio borraba de un saque los destacados que vivían fuera de él: quedaban
+     productos marcados como destacados en el drawer y apagados en la base sin
+     que nadie los hubiera tocado. "Destacado" (resalta en su categoría) y
+     "en el inicio" son cosas distintas; solo la segunda se administra acá. */
   const { error: resetError } = await supabaseClient
     .from("products")
-    .update({ show_on_home: false, home_order: null, is_featured: false, featured: false })
+    .update({ show_on_home: false, home_order: null })
     .not("id", "is", null);
 
   if (resetError) throw resetError;
@@ -1168,8 +1159,8 @@ function parsePriceOrThrow(value, label) {
 // Cada campo es opcional y `undefined` = "no tocar". null o "" = borrar:
 //   price         → products.price (+ precio_centavos). El precio de venta.
 //   oldPrice      → products.old_price. Borrarlo quita la oferta.
-//   resellerPrice → product_pricing.reseller_price (Fase 10).
-//   javyPrice     → product_pricing.javy_price (Fase 10).
+//   resellerPrice → product_pricing.reseller_price (Fase 12).
+//   javyPrice     → product_pricing.javy_price (Fase 12).
 //
 // Los precios internos viven en otra tabla, así que cambiarlos NO toca la fila
 // del producto: no mueve products.updated_at ni invalida el guard de edición
@@ -1235,7 +1226,7 @@ async function setProductPricing(id, { price, oldPrice, resellerPrice, javyPrice
   let pricingRow = null;
   if (touchesInternal) {
     if (!(await pricingEnabled())) {
-      throw new Error("Los precios internos no están disponibles. Falta aplicar la migración fase10-precios.sql.");
+      throw new Error("Los precios internos no están disponibles. Falta aplicar la migración fase12-precios.sql.");
     }
 
     let prevPricing = null;
@@ -1451,162 +1442,6 @@ async function seedProductsFromLocalData() {
   return summary;
 }
 
-// ===== Combos =====
-function normalizeCombo(combo) {
-  const items = (combo.combo_items || [])
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-    .map((item) => {
-      const product = item.products || null;
-      return {
-        id: item.id,
-        product_id: item.product_id,
-        flavor_id: item.flavor_id,
-        quantity: item.quantity ?? 1,
-        product_name: product?.name || "Producto",
-        product_image: product?.image_url || DB_PLACEHOLDER_IMAGE,
-        product_slug: product?.slug || null,
-        flavor_name: item.product_flavors?.name || null,
-      };
-    });
-
-  const price = combo.price == null
-    ? (combo.precio_centavos ? combo.precio_centavos / 100 : null)
-    : Number(combo.price);
-
-  return {
-    id: combo.id,
-    name: combo.name,
-    slug: combo.slug,
-    description: combo.description || "",
-    image: combo.image_url || DB_PLACEHOLDER_IMAGE,
-    image_url: combo.image_url || "",
-    price,
-    old_price: combo.old_price == null || combo.old_price === "" ? null : Number(combo.old_price),
-    is_active: combo.is_active !== false,
-    show_on_home: Boolean(combo.show_on_home),
-    sort_order: combo.sort_order ?? 100,
-    items,
-    created_at: combo.created_at,
-    updated_at: combo.updated_at,
-    created_by: combo.created_by || null,
-    updated_by: combo.updated_by || null,
-  };
-}
-
-function mapComboToDb(data = {}) {
-  const price = data.price === "" || data.price == null ? null : Number(data.price);
-  const oldPrice = data.old_price === "" || data.old_price == null ? null : Number(data.old_price);
-  return {
-    name: data.name?.trim(),
-    description: data.description?.trim() || null,
-    image_url: data.image_url?.trim() || null,
-    price,
-    precio_centavos: price == null ? 0 : Math.round(price * 100),
-    old_price: oldPrice,
-    is_active: data.is_active ?? true,
-    show_on_home: Boolean(data.show_on_home),
-    sort_order: data.sort_order ?? 100,
-  };
-}
-
-async function getCombos(options = {}) {
-  if (!hasSupabaseClient()) return [];
-  const comboSelect = (options.audit && await auditEnabled()) ? COMBO_SELECT_AUDIT : COMBO_SELECT;
-  let query = supabaseClient.from("combos").select(comboSelect).order("sort_order", { ascending: true });
-  if (options.activeOnly) query = query.eq("is_active", true);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data || []).map(normalizeCombo);
-}
-
-async function createCombo(data) {
-  ensureSupabaseForWrite();
-  const payload = mapComboToDb(data);
-  payload.slug = `${categorySlugify(data.name) || "combo"}-${Date.now().toString(36)}`;
-  Object.assign(payload, await auditStamp(true));
-  const { data: row, error } = await supabaseClient.from("combos").insert(payload).select(COMBO_SELECT).single();
-  if (error) throw error;
-  const result = normalizeCombo(row);
-  await logActivity({ action: "create", entity_type: "combo", entity_id: result.id, entity_name: result.name, summary: `creó el combo «${result.name}»` });
-  return result;
-}
-
-async function updateCombo(id, data) {
-  ensureSupabaseForWrite();
-  let prevRow = null;
-  try {
-    const { data: prev } = await supabaseClient.from("combos").select("name, price, old_price, is_active").eq("id", id).maybeSingle();
-    prevRow = prev;
-  } catch (_) { /* el historial es opcional */ }
-  const payload = mapComboToDb(data);
-  Object.assign(payload, await auditStamp());
-  const { data: row, error } = await supabaseClient.from("combos").update(payload).eq("id", id).select(COMBO_SELECT).single();
-  if (error) throw error;
-  const result = normalizeCombo(row);
-
-  const changes = [];
-  if (prevRow) {
-    if ((prevRow.name || "") !== (result.name || "")) changes.push(`nombre «${prevRow.name}» → «${result.name}»`);
-    if (Number(prevRow.price || 0) !== Number(result.price || 0)) changes.push(`precio ${priceLabel(prevRow.price)} → ${priceLabel(result.price)}`);
-    if (Number(prevRow.old_price || 0) !== Number(result.old_price || 0)) changes.push(`oferta ${priceLabel(prevRow.old_price)} → ${priceLabel(result.old_price)}`);
-    if ((prevRow.is_active !== false) !== (result.is_active !== false)) changes.push(result.is_active !== false ? "activado" : "desactivado");
-  }
-  await logActivity({
-    action: "update", entity_type: "combo", entity_id: id, entity_name: result.name,
-    summary: changes.length ? `editó el combo «${result.name}»: ${changes.join(", ")}` : `editó el combo «${result.name}»`,
-  });
-  return result;
-}
-
-// Update parcial: solo activa/desactiva el combo.
-async function setComboActive(id, active) {
-  ensureSupabaseForWrite();
-  const { data, error } = await supabaseClient
-    .from("combos")
-    .update({ is_active: Boolean(active), ...(await auditStamp()) })
-    .eq("id", id)
-    .select(COMBO_SELECT)
-    .single();
-  if (error) throw error;
-  const result = normalizeCombo(data);
-  await logActivity({
-    action: "availability", entity_type: "combo", entity_id: id, entity_name: result.name,
-    field: "estado", new_value: active ? "activo" : "inactivo",
-    summary: `${active ? "activó" : "desactivó"} el combo «${result.name}»`,
-  });
-  return result;
-}
-
-async function deleteCombo(id) {
-  ensureSupabaseForWrite();
-  let name = null;
-  try {
-    const { data: prev } = await supabaseClient.from("combos").select("name").eq("id", id).maybeSingle();
-    name = prev?.name;
-  } catch (_) { /* el historial es opcional */ }
-  const { error } = await supabaseClient.from("combos").delete().eq("id", id);
-  if (error) throw error;
-  await logActivity({ action: "delete", entity_type: "combo", entity_id: id, entity_name: name, summary: `eliminó el combo «${name || id}»` });
-}
-
-// Reemplaza por completo los items de un combo.
-async function saveComboItems(comboId, items = []) {
-  ensureSupabaseForWrite();
-  const { error: delError } = await supabaseClient.from("combo_items").delete().eq("combo_id", comboId);
-  if (delError) throw delError;
-  if (!items.length) return;
-  const rows = items.map((item, index) => ({
-    combo_id: comboId,
-    product_id: item.product_id,
-    flavor_id: item.flavor_id || null,
-    quantity: item.quantity || 1,
-    sort_order: index,
-  }));
-  const { error: insError } = await supabaseClient.from("combo_items").insert(rows);
-  if (insError) throw insError;
-}
-
 function getProductsCacheSource() {
   return productsCacheSource;
 }
@@ -1621,12 +1456,6 @@ window.catalogDb = {
   updateCategory,
   deleteCategory,
   getCategoryProductCount,
-  getCombos,
-  createCombo,
-  updateCombo,
-  setComboActive,
-  deleteCombo,
-  saveComboItems,
   getAdminProfile,
   getAdminProfiles,
   setAdminProfileActive,

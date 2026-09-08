@@ -40,6 +40,16 @@ function slugify(value = "") {
     .replace(/^-|-$/g, "");
 }
 
+/* El badge "Destacado" de la card. El catálogo y la ficha de producto lo pintan
+   con `featured` a secas; en la home vale también `show_on_home` porque los dos
+   campos viven desincronizados en la base: hay productos curados en el inicio
+   con `featured` en false, y sin esto la sección salía con unas cards con badge
+   y otras sin, sin ninguna diferencia visible para el cliente. Estar curado en
+   el inicio ES ser destacado. */
+function isFeatured(product) {
+  return product?.featured === true || product?.show_on_home === true;
+}
+
 function productCanBeQuoted(product) {
   if (product.available === false) return false;
   if (!product.flavors?.length) return true;
@@ -191,6 +201,8 @@ function renderFeaturedProducts(productos) {
   lista.innerHTML = "";
   bindConsultationSync();
 
+  // COPIA PENDIENTE DE MIGRAR: la card canónica vive en js/product-card.js
+  // (window.javyProductCard.render). Si tocas la card, tócala también allá.
   productos.forEach((product) => {
     const canQuote = productCanBeQuoted(product);
     const card = document.createElement("article");
@@ -200,6 +212,7 @@ function renderFeaturedProducts(productos) {
     const detailUrl = window.javyProductUrl?.forProduct?.(product) || `product-page.html?id=${encodeURIComponent(product.id)}`;
     card.innerHTML = `
       <a class="product-card__media product-card__media-link" href="${detailUrl}" aria-label="Ver ${escapeHTML(product.name)}">
+        ${isFeatured(product) ? '<span class="product-card__badge">Destacado</span>' : ""}
         <img src="${escapeHTML(product.image)}" alt="${escapeHTML(product.name)}" class="product-card__img" loading="lazy" />
       </a>
 
@@ -210,6 +223,7 @@ function renderFeaturedProducts(productos) {
             ${canQuote ? "Disponible" : "Agotado"}
           </span>
         </div>
+        ${cardCategoryMarkup(product)}
         <h3 class="product-card__name"><a class="product-card__name-link" href="${detailUrl}">${escapeHTML(product.name)}</a></h3>
         <div class="product-card__price-row">
           <span class="product-card__price-group">
@@ -244,6 +258,18 @@ function renderFeaturedProducts(productos) {
   });
 }
 
+let homeCardCategories = [];
+
+function cardCategoryMarkup(product) {
+  const parts = window.javyCardCategory?.formatParts(product, homeCardCategories);
+  const family = parts?.family || product.category || product.categoria || "";
+  if (!family) return "";
+  const type = parts?.type
+    ? `<span class="product-card__category-sep">›</span><span class="product-card__category-type">${escapeHTML(parts.type)}</span>`
+    : "";
+  return `<span class="product-card__category"><span class="product-card__category-family">${escapeHTML(family)}</span>${type}</span>`;
+}
+
 if (heroProductsBtn) {
   heroProductsBtn.addEventListener("click", () => {
     // El CSS ya respeta prefers-reduced-motion (styles.css), pero el behavior
@@ -261,135 +287,23 @@ if (heroAdvisorBtn) {
 
 async function initHomeProducts() {
   if (!lista) return;
-  lista.innerHTML = `<p class="product-card__disclaimer">Cargando productos destacados...</p>`;
+  const fallbackProducts = getHomeFallbackProducts();
+  if (fallbackProducts.length) renderFeaturedProducts(fallbackProducts);
 
   try {
-    const homeProducts = await window.catalogDb.getHomeProducts();
+    const [homeProducts, categories] = await Promise.all([
+      window.catalogDb.getHomeProducts(),
+      window.catalogDb.getCategories(),
+    ]);
+    homeCardCategories = categories;
     renderFeaturedProducts(homeProducts);
   } catch (error) {
     console.warn("No se pudieron cargar productos del inicio:", error.message);
-    const allProducts = await window.catalogDb.getProductsWithFlavors();
-    const featuredProducts = allProducts.filter((product) => product.featured).slice(0, 8);
-    renderFeaturedProducts(featuredProducts);
   }
 }
 
 initHomeProducts();
 
-// ===== Combos =====
-const combosSection = document.getElementById("combos");
-const combosList = document.getElementById("home-combos__list");
-
-// Un combo se agrega a la cotización como un item con forma de producto.
-function comboToQuoteProduct(combo) {
-  return {
-    id: combo.id,
-    name: `Combo: ${combo.name}`,
-    brand: "",
-    category: "Combo",
-    price: combo.price,
-    presentation: combo.items
-      .map((i) => `${i.quantity}× ${i.product_name}${i.flavor_name ? ` (${i.flavor_name})` : ""}`)
-      .join(", "),
-    image: combo.image,
-  };
-}
-
-function renderHomeCombos(combos) {
-  if (!combosSection || !combosList) return;
-  if (!combos.length) {
-    combosSection.hidden = true;
-    return;
-  }
-  combosSection.hidden = false;
-  combosList.innerHTML = "";
-
-  combos.forEach((combo) => {
-    const card = document.createElement("article");
-    card.className = "product-card combo-card";
-    const itemsHtml = combo.items
-      .map((i) => `<li>${i.quantity}× ${escapeHTML(i.product_name)}${i.flavor_name ? ` <span>(${escapeHTML(i.flavor_name)})</span>` : ""}</li>`)
-      .join("");
-
-    card.innerHTML = `
-      <div class="product-card__media">
-        <img src="${escapeHTML(combo.image)}" alt="${escapeHTML(combo.name)}" class="product-card__img" loading="lazy" />
-      </div>
-      <div class="product-card__info">
-        <h3 class="product-card__name">${escapeHTML(combo.name)}</h3>
-        ${combo.description ? `<p class="combo-card__desc">${escapeHTML(combo.description)}</p>` : ""}
-        <ul class="combo-card__items">${itemsHtml}</ul>
-        <div class="product-card__price-row">
-          <span class="product-card__price-group">
-            <span class="product-card__price">${formatPrice(combo.price)}</span>
-            ${hasOffer(combo) ? `<span class="product-card__price-old">${formatPrice(combo.old_price)}</span><span class="product-card__discount">-${discountPercent(combo)}%</span>` : ""}
-          </span>
-        </div>
-      </div>
-      <div class="product-card__actions product-card__actions--catalog">
-        <button class="product-card__btn product-card__btn--buy" type="button">Agregar a cotización</button>
-      </div>
-    `;
-
-    card.querySelector(".product-card__btn--buy")?.addEventListener("click", () => {
-      if (window.consultation?.hasItem?.(combo.id, "")) {
-        window.consultation?.toast?.("Ese combo ya está en tu cotización");
-        return;
-      }
-      window.consultation?.addItem?.(comboToQuoteProduct(combo), { quantity: 1 });
-      window.consultation?.toast?.("Combo agregado a tu cotización");
-    });
-
-    combosList.appendChild(card);
-  });
-
-  window.javyIcons?.enhance?.(combosList);
-}
-
-async function initHomeCombos() {
-  if (!combosList) return;
-  try {
-    const combos = await window.catalogDb.getCombos({ activeOnly: true });
-    const flagged = combos.filter((c) => c.show_on_home);
-    renderHomeCombos((flagged.length ? flagged : combos).slice(0, 8));
-  } catch (error) {
-    console.warn("No se pudieron cargar combos:", error.message);
-    if (combosSection) combosSection.hidden = true;
-  }
-}
-
-initHomeCombos();
-
-// Carga el embed de Instagram (iframes pesados) solo cuando la sección de
-// reels está por entrar en pantalla, en vez de bloquear la carga inicial.
-function initInstagramLazyLoad() {
-  const section = document.getElementById("educacion");
-  if (!section) return;
-
-  const loadEmbedScript = () => {
-    if (document.querySelector('script[src*="instagram.com/embed.js"]')) return;
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = "https://www.instagram.com/embed.js";
-    document.body.appendChild(script);
-  };
-
-  if (!("IntersectionObserver" in window)) {
-    loadEmbedScript();
-    return;
-  }
-
-  const observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) {
-      loadEmbedScript();
-      observer.disconnect();
-    }
-  }, { rootMargin: "400px 0px" });
-
-  observer.observe(section);
-}
-
-initInstagramLazyLoad();
 
 /* ============================================================================
    Compra por categoría + objetivos
@@ -414,16 +328,36 @@ const FAMILY_ICONS = {
   "salud": "heart-pulse",
 };
 
-// Objetivos que se ofrecen como atajo, en el idioma del cliente. Hick: 6 y no
-// los 30+ valores sueltos que hay en la base.
+/* Objetivos que se ofrecen como atajo, en el idioma del cliente (etiqueta
+   corta) y no con los 30+ valores sueltos que hay en la base.
+
+   `slugs` son los valores REALES del catálogo que caen bajo esa etiqueta. Hacen
+   falta porque no coinciden con el nombre corto: la base guarda "Ganar masa",
+   "Fuerza y rendimiento" y "Energía y enfoque", así que un único slug corto
+   ("fuerza", "energia", "masa-muscular") no matcheaba nada y de los 6 chips
+   solo aparecían 3. El enlace manda todos los que sí existen separados por
+   coma, que es como el catálogo espera un OR dentro de la faceta (?obj=).
+
+   El vocabulario canónico son los 8 objetivos de
+   supabase/migrations/fase8-taxonomia.sql, que el panel admin ofrece en
+   GOAL_SUGGESTIONS (js/admin/config.js). Los sinónimos que quedan acá
+   ("masa-muscular", "fuerza", "energia"…) son red de seguridad: hasta hoy el
+   panel los reintroducía, y aunque ya no puede, un producto viejo o un UPDATE
+   a mano podría traerlos de vuelta. */
 const HOME_GOALS = [
-  { label: "Ganar masa", slug: "masa-muscular" },
-  { label: "Definición", slug: "definicion" },
-  { label: "Fuerza", slug: "fuerza" },
-  { label: "Energía", slug: "energia" },
-  { label: "Recuperación", slug: "recuperacion" },
-  { label: "Salud general", slug: "salud-general" },
+  { label: "Ganar masa", icon: "dumbbell", slugs: ["ganar-masa", "ganar-masa-muscular", "masa-muscular"] },
+  { label: "Definición", icon: "flame", slugs: ["definicion"] },
+  { label: "Fuerza", icon: "shield", slugs: ["fuerza-y-rendimiento", "fuerza", "rendimiento"] },
+  { label: "Energía", icon: "zap", slugs: ["energia-y-enfoque", "energia", "energia-y-foco"] },
+  { label: "Recuperación", icon: "heart-pulse", slugs: ["recuperacion"] },
+  { label: "Descanso", icon: "moon", slugs: ["descanso-y-estres", "descanso", "sueno"] },
+  { label: "Salud general", icon: "leaf", slugs: ["salud-general", "salud"] },
+  { label: "Belleza", icon: "pill", slugs: ["belleza", "piel-cabello-y-unas"] },
 ];
+
+// Marcas del muro de cierre de la home. 8 y no las 30+ del catálogo: es un
+// bloque de confianza, no un índice. El resto vive en el filtro del catálogo.
+const HOME_BRANDS_LIMIT = 8;
 
 /* Las páginas /categoria/<slug>/ las genera scripts/generate-pages.mjs con un
    slug derivado del NOMBRE (slugTokens), no de la columna `slug` de Supabase
@@ -446,9 +380,45 @@ function categorySkeletons(n = 8) {
     `<span class="home-cat home-cat--skeleton skeleton-box" aria-hidden="true"></span>`).join("");
 }
 
+function getLocalFallbackProducts() {
+  if (typeof PRODUCT_LIST === "undefined") return [];
+  return PRODUCT_LIST
+    .map((product) => ({
+      ...product,
+      name: product.nombre,
+      brand: product.marca,
+      category: product.categoria,
+      price: product.precio,
+      presentation: product.presentacion,
+      image: product.imagen || "img/products/product-placeholder.svg",
+      available: product.disponible !== false,
+      featured: product.destacado === true,
+      show_on_home: product.destacado === true,
+      goals: product.objetivos || [],
+      flavors: (product.sabores || []).map((flavor, index) => ({
+        id: `home-local-${product.id}-${index}-${slugify(flavor)}`,
+        name: flavor,
+        available: true,
+      })),
+    }));
+}
+
+function getHomeFallbackProducts() {
+  return getLocalFallbackProducts()
+    .filter((product) => product.featured)
+    .slice(0, 8);
+}
+
 async function initHomeCategories() {
   if (!homeCatsGrid) return;
-  homeCatsGrid.innerHTML = categorySkeletons();
+  const fallbackProducts = getLocalFallbackProducts();
+  if (fallbackProducts.length) {
+    renderHomeCategoriesFlat(fallbackProducts);
+    renderHomeGoals(fallbackProducts);
+    renderHomeBrands(fallbackProducts);
+  } else {
+    homeCatsGrid.innerHTML = categorySkeletons();
+  }
 
   let categories = [];
   let products = [];
@@ -469,13 +439,17 @@ async function initHomeCategories() {
   if (!usableHierarchy) {
     renderHomeCategoriesFlat(products);
     renderHomeGoals(products);
+    renderHomeBrands(products);
     return;
   }
 
   const families = categories.filter((c) => !c.parent_id);
   if (!families.length) {
-    // Sin datos, la sección entera se retira: mejor que dejar un hueco.
+    // Sin datos, la sección entera se retira: mejor que dejar un hueco. Los
+    // objetivos y las marcas sí se pintan: no dependen de la jerarquía.
     document.getElementById("categorias")?.setAttribute("hidden", "");
+    renderHomeGoals(products);
+    renderHomeBrands(products);
     return;
   }
 
@@ -505,6 +479,8 @@ async function initHomeCategories() {
 
   if (!cards.length) {
     document.getElementById("categorias")?.setAttribute("hidden", "");
+    renderHomeGoals(products);
+    renderHomeBrands(products);
     return;
   }
 
@@ -512,6 +488,7 @@ async function initHomeCategories() {
   window.javyIcons?.enhance?.(homeCatsGrid);
 
   renderHomeGoals(products);
+  renderHomeBrands(products);
 }
 
 /* Respaldo sin jerarquía: agrupa por el texto `category` de cada producto y
@@ -531,7 +508,7 @@ function renderHomeCategoriesFlat(products) {
     .map(([label, count]) => {
       const slug = slugify(label);
       return `
-      <a class="home-cat" href="/supplements-page.html?cat=${encodeURIComponent(slug)}"
+      <a class="home-cat" href="/catalogo/?cat=${encodeURIComponent(slug)}"
          aria-label="${escapeHTML(`${label}, ${count} producto${count === 1 ? "" : "s"}`)}">
         <span class="home-cat__icon" aria-hidden="true" data-javy-icon="${escapeHTML(iconForFamily(slug))}"></span>
         <span class="home-cat__name">${escapeHTML(label)}</span>
@@ -547,22 +524,76 @@ function renderHomeCategoriesFlat(products) {
   window.javyIcons?.enhance?.(homeCatsGrid);
 }
 
-// Los chips de objetivo solo aparecen si el objetivo existe en el catálogo:
-// un atajo que lleva a cero resultados es peor que no ofrecerlo.
+/* Los chips de objetivo solo aparecen si el objetivo existe en el catálogo: un
+   atajo que lleva a cero resultados es peor que no ofrecerlo. Cada chip lleva
+   además el conteo, que es lo que convierte una etiqueta en información (mismo
+   criterio que las cards de categoría). */
 function renderHomeGoals(products) {
   if (!homeGoalsRow) return;
 
-  const available = new Set(
-    products.flatMap((p) => (p.goals || []).map((g) => slugify(g))),
-  );
-  const chips = HOME_GOALS.filter((goal) => available.has(goal.slug));
+  const goalSlugsOf = (p) => (p.goals || p.objetivos || []).map((g) => slugify(g));
+
+  const chips = HOME_GOALS
+    .map((goal) => {
+      const wanted = new Set(goal.slugs);
+      const matched = new Set();
+      let count = 0;
+      products.forEach((p) => {
+        const hits = goalSlugsOf(p).filter((slug) => wanted.has(slug));
+        if (!hits.length) return;
+        count += 1;
+        hits.forEach((slug) => matched.add(slug));
+      });
+      // Se conserva el orden declarado en HOME_GOALS para que el enlace sea
+      // estable entre cargas (y no dependa del orden de los productos).
+      return { ...goal, count, slugs: goal.slugs.filter((slug) => matched.has(slug)) };
+    })
+    .filter((goal) => goal.count > 0);
+
   if (!chips.length) return;
 
   homeGoalsRow.innerHTML = chips.map((goal) => `
-    <a class="home-goal" href="/supplements-page.html?obj=${encodeURIComponent(goal.slug)}">
-      ${escapeHTML(goal.label)}
+    <a class="home-goal" href="/catalogo/?obj=${encodeURIComponent(goal.slugs.join(","))}"
+       aria-label="${escapeHTML(`${goal.label}, ${goal.count} producto${goal.count === 1 ? "" : "s"}`)}">
+      <span class="home-goal__icon" aria-hidden="true" data-javy-icon="${escapeHTML(goal.icon)}"></span>
+      <span class="home-goal__label">${escapeHTML(goal.label)}</span>
+      <span class="home-goal__count" aria-hidden="true">${goal.count}</span>
     </a>`).join("");
+  window.javyIcons?.enhance?.(homeGoalsRow);
   document.getElementById("objetivos")?.removeAttribute("hidden");
+}
+
+/* Muro de marcas del bloque de cierre. Sale del catálogo real (no de una lista
+   escrita a mano) para que no anuncie marcas que ya no se venden, y cada una
+   enlaza al catálogo filtrado por esa marca (?marca=). */
+function renderHomeBrands(products) {
+  const grid = document.getElementById("home-brands__grid");
+  if (!grid) return;
+
+  const counts = new Map();
+  products.forEach((p) => {
+    const brand = (p.brand || p.marca || "").trim();
+    if (!brand) return;
+    counts.set(brand, (counts.get(brand) || 0) + 1);
+  });
+
+  const brands = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))
+    .slice(0, HOME_BRANDS_LIMIT);
+
+  // El muro nace oculto (atributo hidden en el HTML) y solo se muestra si hay
+  // marcas que pintar: sin JS, con Supabase caído o con el catálogo vacío, la
+  // prosa se queda sola a una columna en vez de dejar una caja vacía al lado.
+  if (!brands.length) return;
+
+  grid.innerHTML = brands.map(([brand, count]) => `
+    <a class="home-brand" href="/catalogo/?marca=${encodeURIComponent(slugify(brand))}"
+       aria-label="${escapeHTML(`${brand}, ${count} producto${count === 1 ? "" : "s"}`)}">
+      <span class="home-brand__name">${escapeHTML(brand)}</span>
+      <span class="home-brand__count" aria-hidden="true">${count} producto${count === 1 ? "" : "s"}</span>
+    </a>`).join("");
+  grid.closest(".home-about__brands")?.removeAttribute("hidden");
+  document.getElementById("marcas")?.classList.add("home-about--with-brands");
 }
 
 initHomeCategories();

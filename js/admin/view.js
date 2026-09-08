@@ -1,12 +1,13 @@
 /* ============================================================================
    Render de la vista principal (#adminView) y pantalla de error de sección.
    ============================================================================ */
-import { $, esc, ico, wireImageFallbacks } from "./helpers.js?v=adm-7d237d02";
+import { $, esc, ico, wireImageFallbacks } from "./helpers.js?v=adm-ee26d7ee";
 
 export function setView(html) {
   const view = $("#adminView");
   if (window.javyDropdown) window.javyDropdown.destroy(view);
   view.innerHTML = `<div class="ad-section">${html}</div>`;
+  view.closest(".ad-app")?.setAttribute("data-anim", "on");
   wireImageFallbacks(view);
   if (window.javyIcons) window.javyIcons.enhance(view);
   if (window.javyDropdown) window.javyDropdown.enhanceSelects(view);
@@ -35,5 +36,6 @@ export function showViewError(error, where = "") {
     ${error && error.stack ? `<pre>${esc(error.stack)}</pre>` : ""}
     <button class="ad-btn ad-btn--ghost ad-btn--sm" type="button" onclick="location.reload()">Recargar</button>
   </div></div>`;
+  view.closest(".ad-app")?.setAttribute("data-anim", "on");
   if (window.javyIcons) window.javyIcons.enhance(view);
 }

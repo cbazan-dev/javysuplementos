@@ -362,11 +362,16 @@
 }
 
 /* Lista de categorías (familias + tipos anidados) */
+/* `minmax(0, 1fr)` y no la columna implícita `auto`: los <li> traen
+   min-width:auto, así que el track se estiraba hasta el max-content de la
+   categoría de nombre más largo. Con el sidebar más angosto que eso, el panel
+   quedaba con scroll horizontal y los contadores de la derecha se cortaban. */
 .filter-cats {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
 }
 
@@ -431,8 +436,11 @@
 }
 
 /* Checkboxes / radios de facetas (multi-selección) */
+/* Mismo caso que .filter-cats: sin el minmax(0, …) las opciones largas de una
+   faceta (marcas, sabores) ensanchan el track más allá del sidebar. */
 .filter-checks {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
 }
 
@@ -1420,6 +1428,133 @@
 .catalog-empty__icon svg {
   width: 22px;
   height: 22px;
+}
+
+/* ===== Pantallas grandes: aprovechar el ancho ==================================
+   Hasta 1279px el catálogo queda igual que siempre (contenedor de 1180px, el
+   ancho estándar del sitio). De ahí para arriba el contenedor se ensancha por
+   tramos: en un monitor de 1440px el grid se quedaba en 3 columnas y dejaba
+   ~250px muertos a cada lado, porque el track de las cards se topa en 270px y
+   el sobrante no alcanzaba para una cuarta.
+
+   El header se ensancha junto con el catálogo (solo en estas páginas, de ahí el
+   :has()) para que el logo siga alineado con la primera card en vez de quedar
+   metido hacia adentro. */
+
+@media (min-width: 1280px) {
+  .catalog-page,
+  body:has(.catalog-page) .site-header .nav {
+    width: min(1340px, calc(100% - 40px));
+  }
+
+  .catalog-body {
+    grid-template-columns: clamp(240px, 19vw, 272px) minmax(0, 1fr);
+    gap: 26px;
+  }
+
+  /* El ancho extra va a una cuarta columna, no a cards más grandes: con
+     `auto-fit` el track nunca pasa de 270px y el resto quedaba vacío. Acá se
+     fija el número de columnas y las cards reparten el ancho disponible. */
+  .catalog-body .catalog-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  /* Las páginas de categoría no llevan sidebar: ahí el grid ocupa todo el
+     contenedor y acomoda las columnas que entren, estirándolas para no dejar
+     un hueco suelto a la derecha (el .catalog-grid base usa justify-content:
+     start, así que un track con tope fijo sí dejaría sobrante). */
+  .catalog-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+  }
+
+  /* Los filtros crecen con el sidebar: si no, las filas quedan flotando en un
+     panel más ancho con la misma tipografía chica de mobile. */
+  .catalog-sidebar {
+    padding: 20px;
+  }
+
+  .catalog-sidebar__title {
+    font-size: 1.05rem;
+  }
+
+  .filter-panel {
+    gap: 22px;
+  }
+
+  .filter-group__legend {
+    font-size: 0.78rem;
+    margin-bottom: 10px;
+  }
+
+  .filter-cats {
+    gap: 3px;
+  }
+
+  .filter-cat {
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 0.95rem;
+  }
+
+  .filter-cat--type {
+    min-height: 38px;
+    font-size: 0.92rem;
+  }
+
+  .filter-checks {
+    gap: 2px;
+  }
+
+  .filter-check {
+    min-height: 42px;
+    gap: 11px;
+    padding: 0 10px;
+    font-size: 0.95rem;
+  }
+
+  .filter-check__box {
+    width: 19px;
+    height: 19px;
+  }
+
+  .filter-check__count {
+    font-size: 0.84em;
+  }
+}
+
+/* Monitores de 1600px o más: mismo esquema de 4 columnas, pero con el
+   contenedor más ancho para que las cards recuperen tamaño (~280px) en vez de
+   apretarse. Más allá de esto no se agregan columnas: 5 dejaría las cards por
+   debajo del tamaño en el que la foto del producto se lee bien. */
+@media (min-width: 1600px) {
+  .catalog-page,
+  body:has(.catalog-page) .site-header .nav {
+    width: min(1520px, calc(100% - 56px));
+  }
+
+  .catalog-body {
+    grid-template-columns: clamp(272px, 18vw, 312px) minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  .catalog-body .catalog-grid {
+    gap: 22px;
+  }
+
+  .catalog-sidebar {
+    padding: 22px;
+  }
+
+  .filter-cat {
+    min-height: 46px;
+    font-size: 0.98rem;
+  }
+
+  .filter-check {
+    min-height: 44px;
+  }
 }
 
 /* Sin animaciones para quien pide movimiento reducido (mismo patrón que nav.css) */

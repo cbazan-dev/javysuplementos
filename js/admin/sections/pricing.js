@@ -11,12 +11,12 @@
    `pending` y solo viajan los campos que realmente tocó, para no pisar precios
    que ni miró.
    ============================================================================ */
-import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-7d237d02";
-import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-7d237d02";
-import { setView } from "../view.js?v=adm-7d237d02";
-import { confirmModal, toast } from "../ui.js?v=adm-7d237d02";
-import { reloadProducts } from "../data.js?v=adm-7d237d02";
-import { canWrite, canManagePricing } from "../permissions.js?v=adm-7d237d02";
+import { state, families, typesOf, matchesCategoryFilter } from "../state.js?v=adm-ee26d7ee";
+import { $, esc, ico, imgTag, pesoOpt, hasOffer, discountPct, isAvailable, missingInternalPrices, wireImageFallbacks } from "../helpers.js?v=adm-ee26d7ee";
+import { setView } from "../view.js?v=adm-ee26d7ee";
+import { confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
+import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
+import { canWrite, canManagePricing } from "../permissions.js?v=adm-ee26d7ee";
 
 /* Los tres precios, en un solo sitio: la tabla, las cards y el guardado leen de
    acá, así que sumar un cuarto precio sería tocar solo esta lista. */
@@ -137,7 +137,7 @@ const statusCard = (p) => {
 /* ----------------------------- resultados ----------------------------- */
 function resultsHTML(list, can) {
   if (!list.length) {
-    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Probá con otra búsqueda o tocá “Limpiar”.</p></div>`;
+    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Prueba con otra búsqueda o toca “Limpiar”.</p></div>`;
   }
 
   const rows = list.map((p) => `
@@ -225,9 +225,9 @@ export function renderPricing() {
   }, 0);
 
   const aviso = !state.pricingSupported
-    ? `<div class="ad-notice ad-notice--warn">${ico("clock")}<div><strong>Faltan los precios internos.</strong> La tabla <code>product_pricing</code> todavía no existe: aplicá <code>supabase/migrations/fase10-precios.sql</code> desde el SQL Editor de Supabase. Mientras tanto podés editar el precio de venta.</div></div>`
+    ? `<div class="ad-notice ad-notice--warn">${ico("clock")}<div><strong>Faltan los precios internos.</strong> La tabla <code>product_pricing</code> todavía no existe: aplica <code>supabase/migrations/fase12-precios.sql</code> desde el SQL Editor de Supabase. Mientras tanto puedes editar el precio de venta.</div></div>`
     : (!canManagePricing()
-      ? `<div class="ad-notice">${ico("eye")}<div>Podés consultar los precios internos, pero solo un Admin puede modificarlos.</div></div>`
+      ? `<div class="ad-notice">${ico("eye")}<div>Puedes consultar los precios internos, pero solo un Admin puede modificarlos.</div></div>`
       : "");
 
   setView(`
@@ -235,7 +235,7 @@ export function renderPricing() {
       <div class="ad-section-intro">
         <div>
           <p class="ad-kicker">Precios</p>
-          <p>Precio de venta, revendedor y Javy de todo el catálogo. Los dos últimos son internos: <strong>no se muestran en la tienda</strong>. Editá lo que necesites y guardá todo junto.</p>
+          <p>Precio de venta, revendedor y Javy de todo el catálogo. Los dos últimos son internos: <strong>no se muestran en la tienda</strong>. Edita lo que necesites y guarda todo junto.</p>
         </div>
         ${state.pricingSupported ? `<span class="ad-counter${faltantes ? "" : " ad-counter--full"}">${faltantes ? `${faltantes} sin asignar` : "Todos asignados"}</span>` : ""}
       </div>
@@ -418,7 +418,7 @@ async function savePending(view, can) {
   const problems = validatePending();
   if (problems.length) {
     updateResults(view, can);
-    toast({ tone: "err", msg: "Revisá los precios marcados", sub: problems[0] });
+    toast({ tone: "err", msg: "Revisa los precios marcados", sub: problems[0] });
     return;
   }
 
@@ -427,7 +427,7 @@ async function savePending(view, can) {
   const ok = await confirmModal({
     title: "Guardar precios",
     body: `Se actualizarán ${total} ${total === 1 ? "precio" : "precios"} en ${pending.size} ${pending.size === 1 ? "producto" : "productos"}.` +
-      (warnings.length ? ` Revisá esto antes de seguir: ${warnings.slice(0, 3).join(" ")}` : ""),
+      (warnings.length ? ` Revisa esto antes de seguir: ${warnings.slice(0, 3).join(" ")}` : ""),
     confirmLabel: "Guardar",
   });
   if (!ok) return;

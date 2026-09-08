@@ -2,13 +2,13 @@
    Sección Productos: barra de búsqueda + filtros (familia + estado) y la
    tabla/cards con acciones por fila.
    ============================================================================ */
-import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-7d237d02";
-import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-7d237d02";
-import { setView } from "../view.js?v=adm-7d237d02";
-import { bindEditClicks } from "../shell.js?v=adm-7d237d02";
-import { confirmModal, toast } from "../ui.js?v=adm-7d237d02";
-import { reloadProducts } from "../data.js?v=adm-7d237d02";
-import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-7d237d02";
+import { state, families, typesOf, catById, matchesCategoryFilter } from "../state.js?v=adm-ee26d7ee";
+import { $, esc, ico, imgTag, peso, hasOffer, isAvailable, isMissingImage, stockTone, wireImageFallbacks } from "../helpers.js?v=adm-ee26d7ee";
+import { setView } from "../view.js?v=adm-ee26d7ee";
+import { bindEditClicks } from "../shell.js?v=adm-ee26d7ee";
+import { confirmModal, toast } from "../ui.js?v=adm-ee26d7ee";
+import { reloadProducts } from "../data.js?v=adm-ee26d7ee";
+import { openProductDrawer } from "../drawers/product-drawer.js?v=adm-ee26d7ee";
 
 const STATUS_FILTERS = [
   ["all", "Todos"], ["home", "En inicio"], ["offers", "En oferta"], ["out", "Agotados"], ["noimg", "Sin imagen"],
@@ -60,28 +60,13 @@ const toggleButton = (p) => {
   return `<button class="ad-icon-btn${on ? "" : " ad-icon-btn--off"}" type="button" title="${on ? "Ocultar del sitio" : "Mostrar en el sitio"}" data-toggle="${esc(p.id)}">${ico("power")}</button>`;
 };
 
-/* Selección múltiple para mover productos de categoría en lote. Sin esto,
-   repartir los productos que cuelgan de una familia exige abrir un formulario
-   por producto. Se guarda por id y se limpia al cambiar de filtro. */
-const selection = new Set();
-
-const selectedProducts = () => state.products.filter((p) => selection.has(String(p.id)));
-
-function checkboxCell(p) {
-  const on = selection.has(String(p.id));
-  return `<label class="ad-check" title="Seleccionar" data-write-only>
-    <input type="checkbox" data-sel="${esc(p.id)}"${on ? " checked" : ""} aria-label="Seleccionar ${esc(p.name)}" />
-  </label>`;
-}
-
 // Tabla (desktop) + cards (móvil) o estado vacío. Es lo único que se re-renderiza al teclear.
 function resultsHTML(list) {
   if (list.length === 0) {
-    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Probá con otra búsqueda o tocá “Limpiar”.</p></div>`;
+    return `<div class="ad-empty"><span class="ad-empty__icon">${ico("search")}</span><h3>Sin resultados</h3><p>No hay productos que coincidan. Prueba con otra búsqueda o toca “Limpiar”.</p></div>`;
   }
   const rows = list.map((p) => `
-    <tr${selection.has(String(p.id)) ? ' class="is-selected"' : ""}>
-      <td>${checkboxCell(p)}</td>
+    <tr>
       <td><div class="ad-cell-prod">${imgTag(p.image)}<div><strong>${esc(p.name)}</strong><small>${esc(p.brand || "—")}</small></div></div></td>
       <td><small style="color:var(--pb-muted)">${esc(p.category || "—")}</small></td>
       <td>${priceCell(p)}</td>
@@ -96,8 +81,7 @@ function resultsHTML(list) {
     </tr>`).join("");
 
   const cards = list.map((p) => `
-    <div class="ad-prod-card${selection.has(String(p.id)) ? " is-selected" : ""}">
-      ${checkboxCell(p)}
+    <div class="ad-prod-card">
       ${imgTag(p.image)}
       <div>
         <h3>${esc(p.name)}</h3>
@@ -112,34 +96,11 @@ function resultsHTML(list) {
       </div>
     </div>`).join("");
 
-  const allOn = list.length > 0 && list.every((p) => selection.has(String(p.id)));
   return `<div class="ad-table-wrap"><table class="ad-table">
       <thead><tr>
-        <th data-write-only><label class="ad-check" title="Seleccionar todo"><input type="checkbox" data-sel-all${allOn ? " checked" : ""} aria-label="Seleccionar todos los resultados" /></label></th>
         <th>Producto</th><th>Categoría</th><th>Precio</th><th>Sabores</th><th>Estado</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>
      <div class="ad-prod-cards">${cards}</div>`;
-}
-
-/* Barra contextual: aparece solo con algo seleccionado, para no ocupar espacio
-   permanente ni competir con los filtros. */
-function bulkBarHTML() {
-  const n = selection.size;
-  if (!n) return "";
-  const options = families().flatMap((f) => [
-    `<option value="${esc(f.id)}">${esc(f.name)}</option>`,
-    ...typesOf(f.id).map((t) => `<option value="${esc(t.id)}">&nbsp;&nbsp;└ ${esc(t.name)}</option>`),
-  ]).join("");
-
-  return `<div class="ad-bulkbar" data-write-only role="region" aria-label="Acciones sobre la selección">
-    <span class="ad-bulkbar__count">${n} seleccionado${n === 1 ? "" : "s"}</span>
-    <select class="ad-select ad-bulkbar__select" data-bulk-target aria-label="Categoría destino">
-      <option value="">Mover a…</option>
-      ${options}
-    </select>
-    <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-bulk-apply disabled>Mover</button>
-    <button class="ad-link-btn" type="button" data-bulk-clear>${ico("x")}Quitar selección</button>
-  </div>`;
 }
 
 export function renderProducts() {
@@ -156,11 +117,6 @@ export function renderProducts() {
     state.productSubcategory = "all";
   }
 
-  // Descarta de la selección lo que ya no exista en el catálogo (borrados desde
-  // otra pestaña, recargas): mover un id fantasma fallaría en silencio.
-  selection.forEach((id) => {
-    if (!state.products.some((p) => String(p.id) === id)) selection.delete(id);
-  });
   const list = filteredProducts();
   const catOpts = cats.map((o) => `<option value="${esc(o.id)}"${o.id === catSel ? " selected" : ""}>${esc(o.name)}</option>`).join("");
 
@@ -189,13 +145,17 @@ export function renderProducts() {
           <div class="ad-toolbar__filters">
             ${STATUS_FILTERS.map(([k, label]) => `<button class="ad-chip${state.productFilter === k ? " is-active" : ""}" type="button" data-filter="${k}">${esc(label)}</button>`).join("")}
           </div>
+          <div class="ad-status-select">
+            <select class="ad-select" data-status-filter aria-label="Filtrar por estado">
+              ${STATUS_FILTERS.map(([k, label]) => `<option value="${k}"${state.productFilter === k ? " selected" : ""}>${esc(label)}</option>`).join("")}
+            </select>
+          </div>
           <div class="ad-filterbar__meta">
             <button class="ad-link-btn" type="button" data-clear ${hasActiveFilters() ? "" : "hidden"}>${ico("x")}Limpiar</button>
             <span class="ad-result-count" data-count>${countLabel(list)}</span>
           </div>
         </div>
       </div>
-      <div data-bulkbar>${bulkBarHTML()}</div>
       <div data-results>${resultsHTML(list)}</div>
     </div>`);
 
@@ -215,9 +175,6 @@ export function renderProducts() {
   view.querySelector("[data-cat]").addEventListener("change", (e) => {
     state.productCategory = e.target.value;
     state.productSubcategory = "all"; // al cambiar categoría se resetea la subcategoría
-    // Cambiar de filtro cambia lo que está a la vista: conservar la selección
-    // dejaría marcado lo que ya no se ve, y mover a ciegas es difícil de deshacer.
-    selection.clear();
     renderProducts();
     window.requestAnimationFrame(() => {
       $("#adminView")?.querySelector("[data-cat]")?._jdd?._btn?.focus({ preventScroll: true });
@@ -225,7 +182,6 @@ export function renderProducts() {
   });
   view.querySelector("[data-sub]").addEventListener("change", (e) => {
     state.productSubcategory = e.target.value;
-    selection.clear();
     renderProducts();
     window.requestAnimationFrame(() => {
       $("#adminView")?.querySelector("[data-sub]")?._jdd?._btn?.focus({ preventScroll: true });
@@ -233,19 +189,22 @@ export function renderProducts() {
   });
 
   // Estado: re-render completo (no hay foco de tecleo que preservar).
+  // Chips (escritorio) y select (mobile) comparten state.productFilter, así
+  // que cualquiera de los dos dispara el mismo re-render.
   view.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => {
     state.productFilter = b.getAttribute("data-filter");
-    selection.clear();
     renderProducts();
   }));
+  view.querySelector("[data-status-filter]")?.addEventListener("change", (e) => {
+    state.productFilter = e.target.value;
+    renderProducts();
+  });
   view.querySelector("[data-clear]").addEventListener("click", () => {
     state.productFilter = "all"; state.productCategory = "all"; state.productSubcategory = "all"; state.search = "";
-    selection.clear();
     renderProducts();
   });
 
   wireRowActions(view);
-  wireBulkBar(view);
 }
 
 // Re-renderiza solo la lista de resultados + conteo + visibilidad de "Limpiar".
@@ -260,12 +219,6 @@ function updateResults(view) {
   const clear = view.querySelector("[data-clear]");
   if (clear) clear.hidden = !hasActiveFilters();
 
-  const bulkbar = view.querySelector("[data-bulkbar]");
-  if (bulkbar) {
-    bulkbar.innerHTML = bulkBarHTML();
-    if (window.javyIcons) window.javyIcons.enhance(bulkbar);
-    wireBulkBar(view);
-  }
   wireRowActions(view);
 }
 
@@ -274,61 +227,7 @@ function wireRowActions(view) {
   view.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => deleteProductFlow(b.getAttribute("data-del"))));
   view.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => toggleAvailabilityFlow(b.getAttribute("data-toggle"))));
 
-  view.querySelectorAll("[data-sel]").forEach((box) => box.addEventListener("change", () => {
-    const id = String(box.getAttribute("data-sel"));
-    if (box.checked) selection.add(id); else selection.delete(id);
-    updateResults(view);
-  }));
-  view.querySelector("[data-sel-all]")?.addEventListener("change", (e) => {
-    const list = filteredProducts();
-    // "Todo" opera solo sobre lo que el filtro actual muestra, nunca sobre el
-    // catálogo entero: seleccionar a ciegas lo que no se ve invita a errores.
-    list.forEach((p) => (e.target.checked ? selection.add(String(p.id)) : selection.delete(String(p.id))));
-    updateResults(view);
-  });
-
   bindEditClicks(view);
-}
-
-function wireBulkBar(view) {
-  const bar = view.querySelector("[data-bulkbar]");
-  if (!bar) return;
-  const select = bar.querySelector("[data-bulk-target]");
-  const apply = bar.querySelector("[data-bulk-apply]");
-
-  select?.addEventListener("change", () => { if (apply) apply.disabled = !select.value; });
-  apply?.addEventListener("click", () => moveSelectedTo(select.value));
-  bar.querySelector("[data-bulk-clear]")?.addEventListener("click", () => {
-    selection.clear();
-    renderProducts();
-  });
-}
-
-/* Mueve la selección a una categoría. Confirma primero (afecta al catálogo
-   público) y recarga desde la BD para no quedar con datos desfasados. */
-async function moveSelectedTo(categoryId) {
-  const target = catById(categoryId);
-  const items = selectedProducts();
-  if (!target || !items.length) return;
-
-  const parent = target.parent_id ? catById(target.parent_id) : null;
-  const label = parent ? `${parent.name} › ${target.name}` : target.name;
-  const ok = await confirmModal({
-    title: "Mover de categoría",
-    body: `Se moverán ${items.length} producto${items.length === 1 ? "" : "s"} a “${label}”. Se refleja en el catálogo público.`,
-    confirmLabel: "Mover",
-  });
-  if (!ok) return;
-
-  try {
-    await window.catalogDb.updateProductsCategory(items.map((p) => p.id), categoryId);
-    await reloadProducts();
-    selection.clear();
-    toast({ tone: "ok", msg: `${items.length} producto${items.length === 1 ? "" : "s"} movido${items.length === 1 ? "" : "s"}`, sub: label });
-    renderProducts();
-  } catch (e) {
-    toast({ tone: "err", msg: "No se pudo mover", sub: e.message });
-  }
 }
 
 async function duplicateProduct(id) {

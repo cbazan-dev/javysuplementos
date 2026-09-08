@@ -12,11 +12,11 @@
          # Formato: { "products": [...], "product_flavors": [...] }
 
    IMPORTANTE:
-   - Revisá SIEMPRE el `git diff` antes de commitear. Este archivo es lo que ve
+   - Revisa SIEMPRE el `git diff` antes de commitear. Este archivo es lo que ve
      el cliente si Supabase no responde, así que un error aquí degrada el catálogo.
    - La primera corrida producirá un archivo distinto al curado a mano (orden y
      textos por defecto). Antes de confiar en él, asegurate de que Supabase ya
-     tenga TODOS los productos (podés sembrarlos con seedProductsFromLocalData()
+     tenga TODOS los productos (puedes sembrarlos con seedProductsFromLocalData()
      desde Ajustes del panel).
    - Requiere Node 18+ (usa fetch global).
    ============================================================================ */
@@ -189,7 +189,7 @@ async function main() {
     return;
   }
   await writeFile(join(ROOT, "js/product-data.js"), out, "utf8");
-  console.log("✓ js/product-data.js regenerado. Revisá `git diff` antes de commitear.");
+  console.log("✓ js/product-data.js regenerado. Revisa `git diff` antes de commitear.");
 }
 
 main().catch((err) => {

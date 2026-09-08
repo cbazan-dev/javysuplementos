@@ -4,13 +4,13 @@
    El controlador está dividido en módulos bajo js/admin/:
    config · state · helpers · ui · view · data · shell · sections/* · drawers/*
    ============================================================================ */
-import { state } from "./state.js?v=adm-7d237d02";
-import { $, withTimeout } from "./helpers.js?v=adm-7d237d02";
-import { setGate, setGateError } from "./ui.js?v=adm-7d237d02";
-import { showViewError } from "./view.js?v=adm-7d237d02";
-import { loadAll } from "./data.js?v=adm-7d237d02";
-import { buildChrome, go } from "./shell.js?v=adm-7d237d02";
-import { startIdleGuard } from "./session.js?v=adm-7d237d02";
+import { state } from "./state.js?v=adm-ee26d7ee";
+import { $, withTimeout } from "./helpers.js?v=adm-ee26d7ee";
+import { setGate, setGateError } from "./ui.js?v=adm-ee26d7ee";
+import { showViewError } from "./view.js?v=adm-ee26d7ee";
+import { loadAll } from "./data.js?v=adm-ee26d7ee";
+import { buildChrome, go } from "./shell.js?v=adm-ee26d7ee";
+import { startIdleGuard } from "./session.js?v=adm-ee26d7ee";
 
 // Le avisa al watchdog de boot-guard.js que el grafo de módulos evaluó bien;
 // de acá en más los errores los muestra boot() en el gate.

@@ -63,22 +63,22 @@
     },
     {
       "source": "/producto/cbum-energy-drink-355-ml",
-      "destination": "/supplements-page.html",
+      "destination": "/catalogo/",
       "permanent": true
     },
     {
       "source": "/producto/tongkat-ali-complex-1000-mg-60-capsulas",
-      "destination": "/supplements-page.html",
+      "destination": "/catalogo/",
       "permanent": true
     },
     {
       "source": "/categoria/potenciadores-hormonales",
-      "destination": "/supplements-page.html?fam=potenciadores",
+      "destination": "/catalogo/?fam=potenciadores",
       "permanent": true
     },
     {
       "source": "/categoria/potenciadores-hormonales/",
-      "destination": "/supplements-page.html?fam=potenciadores",
+      "destination": "/catalogo/?fam=potenciadores",
       "permanent": true
     },
     {

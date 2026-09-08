@@ -27,7 +27,6 @@
 /* Mismo motivo que arriba: los enlaces del footer saltan a estas secciones y el
    header sticky les tapaba el título. */
 #productos,
-#combos,
 #educacion {
   scroll-margin-top: 112px;
 }
@@ -104,26 +103,38 @@
 }
 
 /* ---- Chips de objetivo ------------------------------------------------- */
-/* Hablan el idioma del cliente ("Ganar masa"), no el del catálogo. */
+/* Hablan el idioma del cliente ("Ganar masa"), no el del catálogo.
+
+   Rejilla y no una fila que se desborda: con el título centrado, los chips
+   sueltos en flex quedaban pegados a la izquierda en desktop y, al envolver,
+   dejaban filas desparejas (6 + 2 en escritorio, 2 + 2 + 1 + 1 + 2 en móvil).
+   En rejilla el bloque queda centrado y parejo: 2 por fila en móvil, 4 en
+   tablet/desktop. */
 .home-goals__row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-2);
   margin-top: var(--sp-4);
 }
 
 .home-goal {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  min-height: 44px;
-  padding: 0 var(--sp-4);
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 48px;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-pill);
   background: var(--surface-1);
   color: var(--text);
-  font-size: 0.9rem;
+  /* En móvil la celda mide ~175px: a 0.9rem etiquetas como "Ganar masa" se
+     partían en dos líneas y desnivelaban la fila. Escala con el ancho y se
+     queda en 0.9rem apenas hay sitio. */
+  font-size: clamp(0.8rem, 3.2vw, 0.9rem);
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
   transition: border-color 0.18s ease, background 0.18s ease;
 }
 
@@ -137,6 +148,157 @@
   outline-offset: 2px;
 }
 
+.home-goal__icon {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.home-goal__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* El conteo es lo que separa un chip decorativo de un atajo con información:
+   dice cuántos productos hay del otro lado antes de hacer clic. */
+.home-goal__count {
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-tint);
+  color: var(--brand-tint-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ---- Cierre: quiénes somos + muro de marcas ---------------------------- */
+/* Dos columnas en desktop (texto | marcas) porque el texto solo, a todo el
+   ancho de la home, daba líneas larguísimas e ilegibles. El muro de marcas lo
+   pinta js/script.js con el catálogo real. */
+.home-about {
+  width: min(100% - 24px, 1180px);
+  margin-inline: auto;
+  margin-top: var(--section-gap);
+  scroll-margin-top: 112px;
+}
+
+.home-about__grid {
+  display: grid;
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(160deg, var(--surface-1), var(--surface-2));
+}
+
+.home-about__copy h2 {
+  margin: 0 0 var(--sp-4);
+  font-size: clamp(1.35rem, 3.2vw, 1.95rem);
+  line-height: 1.2;
+}
+
+.home-about__copy p {
+  margin: 0 0 var(--sp-4);
+  max-width: 62ch;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.home-about__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+
+.home-about__brands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.home-about__brands-title {
+  margin: 0;
+  color: var(--muted-2);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Rejilla pareja: todas las marcas ocupan la misma caja, así el bloque se lee
+   como un muro ordenado y no como una lista de texto suelto. */
+.home-brands__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.home-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: var(--sp-3) var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text);
+  text-align: center;
+  text-decoration: none;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.home-brand:hover {
+  border-color: var(--brand);
+  background: var(--surface-3);
+  transform: translateY(-2px);
+}
+
+.home-brand:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.home-brand__name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.home-brand__count {
+  color: var(--muted-2);
+  font-size: 0.7rem;
+}
+
+.home-about__brands-link {
+  align-self: start;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.home-about__brands-link:hover {
+  text-decoration: underline;
+}
+
+/* El muro nace oculto y js/script.js lo destapa cuando tiene marcas que pintar
+   (ver renderHomeBrands). Hace falta la regla porque .home-about__brands es
+   `display: flex` y eso le gana al hidden del HTML. */
+.home-about__brands[hidden] {
+  display: none;
+}
+
 @media (min-width: 768px) {
   .home-cats__grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -146,14 +308,114 @@
   .home-cat {
     min-height: 128px;
   }
+
+  .home-goals__row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--sp-3);
+  }
+
+  /* Justificado solo de tablet para arriba: en móvil, con columnas de ~40
+     caracteres, el justificado abre "ríos" de espacio entre palabras y se lee
+     peor que la bandera a la derecha. `hyphens` evita esos huecos al partir
+     palabras largas ("suplementación"). */
+  .home-about__copy p {
+    text-align: justify;
+    hyphens: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-about__grid {
+    gap: var(--sp-7);
+    padding: var(--sp-7);
+  }
+
+  /* Las dos columnas solo existen si hay muro que poner al lado: sin JS (o con
+     el catálogo caído) la prosa se queda a lo ancho en vez de dejar media
+     sección vacía. */
+  .home-about--with-brands .home-about__grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .home-brands__grid {
+    gap: var(--sp-3);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-cat {
+  .home-cat,
+  .home-brand {
     transition: none;
   }
 
-  .home-cat:hover {
+  .home-cat:hover,
+  .home-brand:hover {
     transform: none;
   }
 }
+
+/* ===== Así compras (3 pasos) =====
+   Explica que el pedido se cierra por WhatsApp y que acá no se paga. Mismo
+   patrón que .about-process de contacto.html, con clases propias porque la
+   home no carga css/pages/contacto.css. */
+.home-steps {
+  margin-top: var(--section-gap);
+  padding: 0 clamp(16px, 4vw, 32px);
+}
+
+.home-steps__list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 22px);
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.home-steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+}
+
+.home-steps__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.home-steps__item h3 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.home-steps__item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .home-steps__list {
+    grid-template-columns: 1fr;
+  }
+}
+

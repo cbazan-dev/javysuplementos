@@ -5,7 +5,6 @@
 export const state = {
   products: [],
   categories: [],
-  combos: [],
   admins: [],
   userId: null,
   userEmail: null,
@@ -17,9 +16,8 @@ export const state = {
   productCategory: "all",
   productSubcategory: "all",
   search: "",
-  combosSupported: true,
   categoriesSupported: true,
-  // ¿Está aplicada la migración fase10 (tabla product_pricing)? Si no, la
+  // ¿Está aplicada la migración fase12 (tabla product_pricing)? Si no, la
   // sección Precios lo dice en vez de romperse.
   pricingSupported: false,
 };

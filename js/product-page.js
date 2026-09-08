@@ -98,7 +98,7 @@ function injectProductStructuredData(product, { pageUrl, imageUrl, metaDescripti
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Catálogo", item: "https://javysuplementos.com/supplements-page.html" },
+          { "@type": "ListItem", position: 1, name: "Catálogo", item: "https://javysuplementos.com/catalogo/" },
           { "@type": "ListItem", position: 2, name: product.name, item: pageUrl },
         ],
       },
@@ -186,7 +186,11 @@ function renderCategoryTrail(family, type, fallbackLabel) {
   const categoryCell = document.getElementById("prod-category");
   if (!categoryCell) return;
   if (family) {
-    categoryCell.innerHTML = `${link(family.name)}${type ? ` · ${escapeHTML(type.name)}` : ""}`;
+    const familyChip = `<span class="pdp__cat-family">${link(family.name)}</span>`;
+    const typeChip = type
+      ? `<svg class="pdp__cat-sep" width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="pdp__cat-type">${escapeHTML(type.name)}</span>`
+      : "";
+    categoryCell.innerHTML = `${familyChip}${typeChip}`;
   } else {
     categoryCell.textContent = fallbackLabel;
   }
@@ -220,7 +224,12 @@ function relSyncAddButton(card, product) {
 
 /* Misma card que el catálogo y la home: destacado, disponibilidad, oferta,
    presentación, botón de cotización y "Ver detalles". Se construye aquí porque
-   la ficha no carga js/supplements.js; si esa card cambia, hay que reflejarlo. */
+   la ficha no carga js/supplements.js; si esa card cambia, hay que reflejarlo.
+
+   COPIA PENDIENTE DE MIGRAR a js/product-card.js (window.javyProductCard.render),
+   que ya es la versión canónica. Ojo al migrar: relFormatPrice() de acá devuelve
+   el precio SIN "$" y el módulo lo devuelve CON "$" — la plantilla hay que
+   ajustarla, no es un cambio mecánico. */
 function renderRelatedCard(product) {
   const canQuote = productCanBeQuoted(product);
   const detailUrl = escapeHTML(
@@ -554,7 +563,7 @@ function renderNotFound() {
       <div>
         <h1 style="margin-bottom:0.75rem;">Producto no encontrado</h1>
         <p style="margin-bottom:1rem;color:#A9B4C6;">Verifica el enlace o vuelve al catalogo.</p>
-        <a href="/supplements-page.html" style="color:#5AB4E9;text-decoration:none;font-weight:500;">Volver al catalogo</a>
+        <a href="/catalogo/" style="color:#5AB4E9;text-decoration:none;font-weight:500;">Volver al catalogo</a>
       </div>
     </main>
   `;

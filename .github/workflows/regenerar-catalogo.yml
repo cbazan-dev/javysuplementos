@@ -1,0 +1,106 @@
+# Regenera el HTML estático del catálogo desde Supabase.
+#
+# Por qué existe: scripts/generate-pages.mjs solo corría a mano, y en la práctica
+# nadie lo corría. El resultado eran páginas /producto/ y /categoria/ congeladas,
+# productos activos sin página y un sitemap viejo.
+#
+# No necesita secrets: el script lee la URL y la key desde js/supabase-config.js,
+# que está versionado y usa la key publishable (solo ve lo que permite RLS
+# anónimo). Si algún día esa config sale del repo, este workflow deja de
+# funcionar y hay que pasarle las credenciales por `secrets`.
+#
+# Abre un PR en vez de commitear directo a main, por la regla del proyecto
+# ("a producción se llega por Pull Request", CLAUDE.md). El retraso no afecta al
+# visitante: js/categoria.js hidrata precios y disponibilidad en el cliente. Lo
+# que espera al merge es el HTML que leen Google y el scraper de WhatsApp.
+name: Regenerar catálogo estático
+
+on:
+  schedule:
+    # 08:00 UTC = 03:00 en Panamá (UTC-5). GitHub tiene deriva de varios minutos
+    # y se saltea corridas bajo carga; para SEO nocturno da igual.
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Dos corridas a la vez pelearían por la misma rama de salida.
+concurrency:
+  group: regenerar-catalogo
+  cancel-in-progress: false
+
+jobs:
+  regenerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Regenerar desde Supabase
+        run: node scripts/generate-pages.mjs
+
+      # FRENO DE MANO. Lo más importante del workflow.
+      #
+      # generate-pages.mjs borra producto/ y categoria/ antes de regenerar. Toda
+      # carpeta que no se vuelva a crear es una URL indexada que pasa a 404, y el
+      # 301 se da de alta A MANO en Cloudflare (README.md y §2.7 del doc de
+      # seguridad). Un bot no puede tomar esa decisión de madrugada.
+      #
+      # Altas y actualizaciones de precio: automáticas.
+      # Bajas: siempre a mano, con su 301.
+      - name: Abortar si desaparecen páginas
+        run: |
+          borradas=$(git status --porcelain \
+            | grep -E '^(D.| D)' \
+            | grep -oE '(producto|categoria)/[^/]+' | sort -u || true)
+          if [ -n "$borradas" ]; then
+            echo "::error::Estas páginas desaparecerían y necesitan un 301 manual en Cloudflare (docs/seguridad-cloudflare.md §2.7) antes de regenerar:"
+            echo "$borradas"
+            exit 1
+          fi
+          echo "Ninguna página se pierde."
+
+      - name: ¿Hay algo que publicar?
+        id: diff
+        run: |
+          # Acotado a lo que el script genera: si falla a mitad de camino, no
+          # arrastra ningún otro cambio del árbol.
+          git add producto categoria js/product-urls.js sitemap.xml
+          if git diff --cached --quiet; then
+            echo "hay_cambios=false" >> "$GITHUB_OUTPUT"
+            echo "Sin cambios: el HTML ya refleja lo que hay en Supabase."
+          else
+            echo "hay_cambios=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat
+          fi
+
+      - name: Abrir PR con la regeneración
+        if: steps.diff.outputs.hay_cambios == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: bot/regenerar-catalogo
+          base: main
+          # Una sola rama reutilizada: las corridas siguientes actualizan el PR
+          # abierto en vez de acumular uno por noche.
+          title: "Regenera el catálogo estático desde Supabase"
+          commit-message: "Regenera el catálogo estático desde Supabase"
+          body: |
+            Regeneración automática de `scripts/generate-pages.mjs`.
+
+            Ninguna página desaparece (si alguna lo hiciera, el job habría fallado
+            antes de llegar acá: las bajas necesitan un 301 manual en Cloudflare).
+
+            Revisar el diff y mergear para que Pages publique.
+          add-paths: |
+            producto
+            categoria
+            js/product-urls.js
+            sitemap.xml
+          delete-branch: false

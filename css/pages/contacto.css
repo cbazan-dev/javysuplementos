@@ -355,32 +355,84 @@
 .about-location__marker {
   display: grid;
   justify-items: center;
-  width: min(100%, 280px);
-  min-height: 48px;
+  gap: 14px;
+  width: min(100%, 320px);
   margin-inline: auto;
-  padding: 12px 18px 16px;
-  border: 1px solid rgb(from var(--accent) r g b / 0.3);
-  border-radius: 26px;
-  background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+  padding: 24px 18px 18px;
+  border: 1px solid rgb(from var(--accent) r g b / 0.42);
+  border-radius: 22px;
+  background: var(--surface-1);
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-weight: 900;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .about-location__marker:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: var(--accent);
-  background: var(--surface-3);
+  box-shadow: 0 16px 34px rgb(from var(--brand) r g b / 0.2), var(--shadow);
 }
 
-.about-location__marker img {
-  width: min(66vw, 210px);
-  height: auto;
-  margin-bottom: 4px;
-  filter: drop-shadow(0 16px 26px rgba(0, 0, 0, calc(0.4 * var(--shadow-a))));
+.about-location__marker:focus-visible {
+  outline: none;
+  border-color: var(--neon);
+  box-shadow: var(--ring), var(--shadow);
+}
+
+/* Pin cuadrado (misma familia de iconos de 24x24) sobre una placa con el
+   acento de marca: sustituye a la foto del mapa, que se veía alargada. */
+.about-location__pin {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border: 1px solid rgb(from var(--accent) r g b / 0.32);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 30% 22%, rgb(from var(--accent) r g b / 0.26), transparent 62%),
+    color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease;
+}
+
+.about-location__pin svg {
+  width: 44px;
+  height: 44px;
+  stroke-width: 1.6;
+}
+
+.about-location__marker:hover .about-location__pin,
+.about-location__marker:focus-visible .about-location__pin {
+  transform: scale(1.04);
+}
+
+.about-location__marker-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  gap: 8px;
+  align-items: center;
+  justify-self: stretch;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid rgb(from var(--accent) r g b / 0.45);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+  font-weight: 900;
+  text-align: left;
+}
+
+.about-location__marker-cta svg {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+
+.about-location__marker-cta svg:last-child {
+  justify-self: end;
 }
 
 .about-final-cta {
@@ -419,7 +471,14 @@
   color: var(--text);
   box-shadow: var(--shadow-lg);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 18%, transparent) transparent;
 }
+
+.location-dialog::-webkit-scrollbar { width: 8px; }
+.location-dialog::-webkit-scrollbar-track { background: transparent; }
+.location-dialog::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius-pill); }
+.location-dialog::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--text) 32%, transparent); }
 
 .location-dialog::backdrop {
   background: rgb(from var(--bg) r g b / 0.78);
@@ -564,8 +623,15 @@
     grid-template-columns: minmax(0, 1.25fr) minmax(250px, 0.75fr);
   }
 
-  .about-location__marker img {
-    width: min(24vw, 220px);
+  .about-location__pin {
+    width: 108px;
+    height: 108px;
+    border-radius: 28px;
+  }
+
+  .about-location__pin svg {
+    width: 52px;
+    height: 52px;
   }
 
   .about-final-cta {
@@ -598,6 +664,7 @@
 @media (prefers-reduced-motion: reduce) {
   .about-btn,
   .about-location__marker,
+  .about-location__pin,
   .location-dialog__options a {
     transition: none;
   }

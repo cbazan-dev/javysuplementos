@@ -1,7 +1,7 @@
 /* ============================================================================
    TOKENS — Fuente ÚNICA de verdad del sistema visual de Javy Suplementos.
    Se carga en TODAS las páginas y DESPUÉS de styles.css, así que estos valores
-   mandan. No hardcodees colores en los componentes: usá estas variables.
+   mandan. No hardcodees colores en los componentes: usa estas variables.
 
    Tema oscuro con identidad, pero en CAPAS azuladas (no negro plano) para que
    descanse la vista. Cada acento tiene UN significado fijo (ver abajo).

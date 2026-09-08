@@ -54,7 +54,7 @@ Sin una identidad correcta no se puede buscar información veraz del producto, y
 principal del llenado de catálogo es **no inventar nada**. Por eso quedan fuera del
 trabajo automático hasta que se confirmen a mano.
 
-**Cómo usar esta lista:** revisá el envase físico (o la factura del proveedor) y anotá la
+**Cómo usar esta lista:** revisa el envase físico (o la factura del proveedor) y anota la
 marca real en la columna correspondiente. Con eso confirmado, el producto entra al llenado
 automático de descripción, beneficios y modo de uso.
 

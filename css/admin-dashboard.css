@@ -51,6 +51,14 @@
 }
 
 html, body { margin: 0; background: var(--pb-bg-0); }
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pb-text) 18%, transparent) transparent;
+}
+html::-webkit-scrollbar { width: 8px; height: 8px; }
+html::-webkit-scrollbar-track { background: transparent; }
+html::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--pb-text) 18%, transparent); border-radius: var(--ad-radius); }
+html::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--pb-text) 32%, transparent); }
 body.ad-body { min-height: 100vh; }
 
 /* El atributo [hidden] debe ganar sobre las reglas de layout del kit
@@ -120,26 +128,29 @@ body.ad-body { min-height: 100vh; }
 .ad-gate__error-detail:empty { display: none; }
 
 /* ---- shell grid ---- */
-.ad-shell { min-height: 100vh; display: grid; grid-template-columns: 264px minmax(0,1fr); }
+.ad-shell { min-height: 100vh; display: grid; grid-template-columns: 264px minmax(0,1fr); overflow: clip; }
 
 @media (min-width: 761px) {
-  .ad-shell.is-sidebar-collapsed { grid-template-columns: minmax(0,1fr); }
-  .ad-shell.is-sidebar-collapsed .ad-sidebar { display: none; }
+  /* La columna se encoge y el contenido se desvanece en vez de desaparecer de
+     golpe. `data-motion-ready` evita animar el estado guardado al arrancar. */
+  .ad-shell[data-motion-ready] { transition: grid-template-columns .16s ease-out; }
+  .ad-shell.is-sidebar-collapsed { grid-template-columns: 0 minmax(0,1fr); }
+  .ad-shell.is-sidebar-collapsed .ad-sidebar { opacity: 0; transform: translateX(-16px); pointer-events: none; }
 }
 
 /* ---- sidebar ---- */
 .ad-sidebar {
   position: sticky; top: 0; height: 100vh;
-  display: flex; flex-direction: column; gap: 18px;
+  display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow: hidden;
   border-right: 1px solid var(--pb-line);
   background: rgba(12,16,24,0.86);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   padding: 20px 16px;
+  transition: opacity .12s linear, transform .16s ease-out;
+  will-change: opacity, transform;
 }
-.ad-brand { display: flex; align-items: center; gap: 12px; min-height: 56px; color: var(--pb-text); text-decoration: none; }
+.ad-brand { display: flex; align-items: center; min-height: 56px; color: var(--pb-text); text-decoration: none; }
 .ad-brand img { width: 52px; height: auto; }
-.ad-brand strong { display: block; font-family: var(--font-heading); font-weight: 900; font-size: 1.15rem; line-height: 1; }
-.ad-brand small { display: block; color: var(--pb-muted); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 3px; }
 
 .ad-nav { display: grid; gap: 6px; }
 .ad-nav__group-label { color: var(--pb-muted-2); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 10px 12px 4px; }
@@ -184,8 +195,10 @@ body.ad-body { min-height: 100vh; }
   transition: background .18s ease, color .18s ease, border-color .18s ease;
 }
 .ad-topbar__sidebar-toggle .ad-ico { width: 18px; height: 18px; }
+.ad-topbar__sidebar-toggle .ad-ico { transition: transform .24s cubic-bezier(.4,0,.2,1); }
 .ad-topbar__sidebar-toggle:hover, .ad-topbar__sidebar-toggle:focus-visible { background: var(--pb-blue-tint-08); color: #fff; outline: none; }
 .ad-topbar__sidebar-toggle[aria-pressed="true"] { background: var(--pb-blue-tint-12); border-color: rgba(90,180,233,0.38); color: #fff; }
+.ad-topbar__sidebar-toggle[aria-pressed="true"] .ad-ico { transform: rotate(180deg); }
 .ad-topbar__title { display: grid; gap: 3px; }
 .ad-topbar__title h1 { font-family: var(--font-heading); font-weight: 900; font-size: 1.5rem; line-height: 1; }
 .ad-topbar__title p { color: var(--pb-muted); font-size: 0.85rem; }
@@ -224,9 +237,9 @@ body.ad-body { min-height: 100vh; }
 /* ---- sections ---- */
 .ad-section { display: block; }
 @media (prefers-reduced-motion: no-preference) {
-  .ad-app[data-anim="on"] .ad-section { animation: adIn .22s ease both; }
+  .ad-app[data-anim="on"] .ad-section { animation: adIn .24s cubic-bezier(.4,0,.2,1) both; }
 }
-@keyframes adIn { from { transform: translateY(8px); } to { transform: none; } }
+@keyframes adIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---- stat cards ---- */
 .ad-stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
@@ -306,6 +319,13 @@ body.ad-body { min-height: 100vh; }
 }
 .ad-chip.is-active { border-color: rgba(90,180,233,0.45); background: var(--pb-blue-tint-12); color: #fff; }
 .ad-result-count { color: var(--pb-muted); font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+/* Alterna con .ad-toolbar__filters (los chips) en mobile: mismos filtros de
+   estado, sin ocupar varias filas apilados. Ver @media (max-width: 767px).
+   Envuelve al <select> (no es el propio <select>): window.javyDropdown lo
+   reemplaza visualmente por un widget .jdd insertado como hermano justo
+   antes del <select> real (que queda oculto dentro). Ocultar solo el
+   <select> no ocultaba ese widget — quedaba flotando en escritorio. */
+.ad-status-select { display: none; }
 
 /* ---- products filter bar (búsqueda + familia + estado) ---- */
 .ad-filterbar { display: grid; gap: 12px; margin-bottom: 16px; }
@@ -339,8 +359,11 @@ body.ad-body { min-height: 100vh; }
   .ad-filterbar .ad-search { flex: 1 1 100%; }
   .ad-filterbar__sel { width: 100%; flex: 1 1 100%; }
   .ad-filterbar__row .ad-btn--primary { flex: 1 1 100%; justify-content: center; }
-  /* chips envuelven en vez de salirse de la pantalla */
-  .ad-filterbar .ad-toolbar__filters { flex-wrap: wrap; overflow-x: visible; padding-bottom: 0; }
+  /* Los 7 chips de estado apilados ocupaban varias filas y empujaban el resto
+     de la sección hacia abajo; en mobile se reemplazan por un solo <select>
+     con las mismas opciones (misma fuente: STATUS_FILTERS en products.js). */
+  .ad-filterbar .ad-toolbar__filters { display: none; }
+  .ad-status-select { display: block; width: 100%; }
   .ad-filterbar__row--chips { flex-direction: column; align-items: stretch; gap: 10px; }
   .ad-filterbar__meta { justify-content: flex-end; }
 }
@@ -370,13 +393,15 @@ body.ad-body { min-height: 100vh; }
 
 /* product cards (mobile) */
 .ad-prod-cards { display: none; gap: 12px; }
-.ad-prod-card { border: 1px solid var(--pb-line); border-radius: var(--ad-radius); background: linear-gradient(145deg, rgba(17,25,37,0.88), rgba(9,14,20,0.88)); padding: 12px; display: grid; grid-template-columns: auto 64px minmax(0,1fr); align-items: start; gap: 12px; }
-.ad-prod-card .ad-check { align-self: start; }
+.ad-prod-card { border: 1px solid var(--pb-line); border-radius: var(--ad-radius); background: linear-gradient(145deg, rgba(17,25,37,0.88), rgba(9,14,20,0.88)); padding: 12px; display: grid; grid-template-columns: 64px minmax(0,1fr); align-items: start; gap: 12px; }
 .ad-prod-card img { width: 64px; height: 64px; border-radius: 12px; object-fit: contain; background: var(--pb-white-06); }
 .ad-prod-card h3 { font-size: 1rem; margin-bottom: 3px; }
 .ad-prod-card .ad-meta { color: var(--pb-muted); font-size: 0.8rem; margin: 0 0 9px; }
 .ad-prod-card .ad-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
-.ad-prod-card .ad-card-actions { display: grid; grid-template-columns: 1fr auto auto; gap: 7px; grid-column: 1 / -1; }
+/* Editar + apagar/prender + duplicar + borrar: 4 botones, 4 columnas. Con
+   solo 3 columnas definidas el 4º (borrar) se desbordaba a una fila nueva
+   por auto-placement, angosto y desalineado. */
+.ad-prod-card .ad-card-actions { display: grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap: 7px; grid-column: 1 / -1; }
 
 /* ---- status pills ---- */
 .ad-pill { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 800; }
@@ -468,10 +493,16 @@ body.ad-body { min-height: 100vh; }
 .ad-drop .ad-ico { width: 26px; height: 26px; }
 .ad-drop strong { color: var(--pb-text); font-size: 0.9rem; }
 .ad-drop small { font-size: 0.76rem; }
-.ad-drop--filled { padding: 0; border-style: solid; }
-.ad-drop__preview { position: relative; width: 100%; }
-.ad-drop__preview img { width: 100%; height: 150px; object-fit: contain; background: var(--pb-white-06); border-radius: var(--ad-radius-sm); }
-.ad-drop__change { position: absolute; right: 8px; bottom: 8px; }
+.ad-drop--filled { padding: 10px; border-style: solid; cursor: default; }
+.ad-drop__preview { position: relative; width: 100%; display: grid; gap: 10px; justify-items: center; }
+/* Cuadrada como .product-card__media: si el recuadro fuera una tira ancha, la
+   misma foto se vería chica acá y grande en la card, que es justo lo que
+   confundía al cargar una imagen. */
+.ad-drop__preview img {
+  width: min(220px, 100%); aspect-ratio: 1 / 1; height: auto; display: block;
+  object-fit: contain; background: var(--pb-white-06); border-radius: var(--ad-radius-sm);
+}
+.ad-drop__tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
 /* ---- chips input ---- */
 .ad-chips-input { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border: 1px solid var(--pb-line); border-radius: var(--ad-radius-sm); background: var(--pb-surface-2); }
@@ -503,6 +534,81 @@ body.ad-body { min-height: 100vh; }
 .ad-drawer__close { margin-left: auto; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--pb-line); border-radius: 10px; background: var(--pb-white-04); color: #fff; cursor: pointer; flex: 0 0 auto; }
 .ad-drawer__close:hover { border-color: rgba(255,79,118,0.4); color: #ffc1ce; }
 .ad-drawer__body { flex: 1; overflow-y: auto; padding: 8px 18px 18px; }
+
+/* Scroll discreto y consistente con los filtros del catálogo. */
+.ad-drawer__body,
+.ad-table-wrap,
+.ad-modal__main,
+.ad-modal__rail,
+.ad-modal__content,
+.ad-modal__preview,
+.ad-modal--product .ad-modal__main,
+.ad-error pre,
+.ad-toolbar__filters,
+.ad-rep-scroll,
+.ad-subtabs {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pb-text) 18%, transparent) transparent;
+}
+
+.ad-drawer__body::-webkit-scrollbar,
+.ad-table-wrap::-webkit-scrollbar,
+.ad-modal__main::-webkit-scrollbar,
+.ad-modal__rail::-webkit-scrollbar,
+.ad-modal__content::-webkit-scrollbar,
+.ad-modal__preview::-webkit-scrollbar,
+.ad-modal--product .ad-modal__main::-webkit-scrollbar,
+.ad-error pre::-webkit-scrollbar,
+.ad-toolbar__filters::-webkit-scrollbar,
+.ad-rep-scroll::-webkit-scrollbar,
+.ad-subtabs::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ad-drawer__body::-webkit-scrollbar-track,
+.ad-table-wrap::-webkit-scrollbar-track,
+.ad-modal__main::-webkit-scrollbar-track,
+.ad-modal__rail::-webkit-scrollbar-track,
+.ad-modal__content::-webkit-scrollbar-track,
+.ad-modal__preview::-webkit-scrollbar-track,
+.ad-modal--product .ad-modal__main::-webkit-scrollbar-track,
+.ad-error pre::-webkit-scrollbar-track,
+.ad-toolbar__filters::-webkit-scrollbar-track,
+.ad-rep-scroll::-webkit-scrollbar-track,
+.ad-subtabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ad-drawer__body::-webkit-scrollbar-thumb,
+.ad-table-wrap::-webkit-scrollbar-thumb,
+.ad-modal__main::-webkit-scrollbar-thumb,
+.ad-modal__rail::-webkit-scrollbar-thumb,
+.ad-modal__content::-webkit-scrollbar-thumb,
+.ad-modal__preview::-webkit-scrollbar-thumb,
+.ad-modal--product .ad-modal__main::-webkit-scrollbar-thumb,
+.ad-error pre::-webkit-scrollbar-thumb,
+.ad-toolbar__filters::-webkit-scrollbar-thumb,
+.ad-rep-scroll::-webkit-scrollbar-thumb,
+.ad-subtabs::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pb-text) 18%, transparent);
+  border-radius: var(--ad-radius);
+}
+
+.ad-drawer__body::-webkit-scrollbar-thumb:hover,
+.ad-table-wrap::-webkit-scrollbar-thumb:hover,
+.ad-modal__main::-webkit-scrollbar-thumb:hover,
+.ad-modal__rail::-webkit-scrollbar-thumb:hover,
+.ad-modal__content::-webkit-scrollbar-thumb:hover,
+.ad-modal__preview::-webkit-scrollbar-thumb:hover,
+.ad-modal--product .ad-modal__main::-webkit-scrollbar-thumb:hover,
+.ad-error pre::-webkit-scrollbar-thumb:hover,
+.ad-toolbar__filters::-webkit-scrollbar-thumb:hover,
+.ad-rep-scroll::-webkit-scrollbar-thumb:hover,
+.ad-subtabs::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--pb-text) 32%, transparent);
+}
+
 .ad-drawer__foot {
   display: flex; gap: 10px; padding: 14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--pb-line); flex: 0 0 auto;
@@ -523,7 +629,7 @@ body.ad-body { min-height: 100vh; }
 .ad-collapse__body { padding: 4px 14px 16px; display: grid; gap: 14px; }
 .ad-collapse:not(.is-open) .ad-collapse__body { display: none; }
 
-/* ---- modal de formulario (producto / combo): centrado con índice lateral ---- */
+/* ---- modal de formulario (producto): centrado con índice lateral ---- */
 .ad-modal-overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 24px; }
 .ad-modal__scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: adFade .2s ease; }
 .ad-modal {
@@ -705,6 +811,109 @@ body.ad-body { min-height: 100vh; }
 .ad-confirm p { color: var(--pb-muted); font-size: 0.9rem; line-height: 1.5; }
 .ad-confirm__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 
+/* ---- editor de encuadre (cropper) ---- */
+/* z-index por encima del confirm (300), que a su vez está por encima del
+   modal de producto (100): el cropper se abre desde adentro del drawer. */
+.ad-cropper-overlay {
+  position: fixed; inset: 0; z-index: 320;
+  display: grid; place-items: center; padding: 12px;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  animation: adFade .18s ease;
+}
+.ad-cropper {
+  /* Ancho definido, no min(...,100%): el overlay es un grid con
+     place-items:center, o sea que este item es shrink-to-fit, y ahí el
+     porcentaje colapsa a 0 y se lleva puesto al marco, que hereda ese 0 por
+     su propio 100%. Resultado: el editor abría con el cuadro en cero. */
+  width: 460px; max-width: 100%; max-height: 100%; overflow-y: auto;
+  display: grid; gap: 12px; padding: 16px;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius);
+  background: linear-gradient(180deg, #0d141d, #090d13);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.ad-cropper__head { display: flex; align-items: center; gap: 10px; }
+.ad-cropper__head h3 { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.ad-cropper__x {
+  margin-left: auto; display: grid; place-items: center;
+  width: 34px; height: 34px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--pb-muted); cursor: pointer;
+}
+.ad-cropper__x:hover { background: var(--pb-white-06); color: #fff; }
+.ad-cropper__x:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+
+/* El ancho se limita por altura de viewport a propósito: si el cuadrado
+   ocupara todo el ancho del diálogo, en una pantalla baja el aspect-ratio
+   desbordaría la grilla y se comería la fila del zoom. */
+.ad-cropper__frame {
+  position: relative; overflow: hidden; box-sizing: border-box;
+  /* Tamaño provisional: al abrir, layoutFrame() en js/admin/image-cropper.js le
+     fija ancho y alto en píxeles. Dejar que lo resolviera el CSS con
+     aspect-ratio + max-height (o min(100%, 48dvh)) terminaba en un cuadro de
+     alto cero, y el editor abría vacío sin decir nada. */
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
+  border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius-sm);
+  background-color: var(--pb-surface-2);
+  /* damero: deja claro que el sobrante se guarda transparente, no blanco */
+  background-image:
+    linear-gradient(45deg, var(--pb-white-04) 25%, transparent 25%, transparent 75%, var(--pb-white-04) 75%),
+    linear-gradient(45deg, var(--pb-white-04) 25%, transparent 25%, transparent 75%, var(--pb-white-04) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+  /* imprescindible: sin esto el gesto se lo lleva el scroll del modal en mobile */
+  touch-action: none;
+  user-select: none; -webkit-user-select: none;
+  cursor: grab;
+}
+.ad-cropper__frame:active { cursor: grabbing; }
+.ad-cropper__frame:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+.is-loading .ad-cropper__frame { cursor: progress; }
+
+.ad-cropper__img {
+  position: absolute; top: 0; left: 0;
+  will-change: transform; pointer-events: none; -webkit-user-drag: none;
+}
+.ad-cropper__loading {
+  position: absolute; inset: 0; margin: 0; display: grid; place-items: center;
+  color: var(--pb-muted); font-size: 0.85rem;
+}
+.ad-cropper__guides {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to right,  transparent calc(33.333% - 0.5px), var(--pb-white-10) calc(33.333% - 0.5px) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+    linear-gradient(to right,  transparent calc(66.666% - 0.5px), var(--pb-white-10) calc(66.666% - 0.5px) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.333% - 0.5px), var(--pb-white-10) calc(33.333% - 0.5px) calc(33.333% + 0.5px), transparent calc(33.333% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(66.666% - 0.5px), var(--pb-white-10) calc(66.666% - 0.5px) calc(66.666% + 0.5px), transparent calc(66.666% + 0.5px));
+}
+.is-loading .ad-cropper__guides { display: none; }
+
+.ad-cropper__controls { display: grid; gap: 10px; }
+.ad-cropper__zoom { display: flex; align-items: center; gap: 10px; }
+.ad-cropper__zoom-ico { display: grid; place-items: center; color: var(--pb-muted); }
+.ad-cropper__zoom-ico .ad-ico { width: 18px; height: 18px; }
+.ad-cropper__range {
+  flex: 1; min-height: 44px; background: transparent; cursor: pointer;
+  accent-color: var(--ad-green);
+}
+.ad-cropper__range:focus-visible { outline: 2px solid var(--ad-blue); outline-offset: 2px; }
+.ad-cropper__presets { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-cropper__presets .ad-btn { flex: 1 1 auto; }
+
+.ad-cropper__hint { margin: 0; color: var(--pb-muted); font-size: 0.8rem; line-height: 1.45; }
+.ad-cropper__error { margin: 0; color: #ffc1ce; font-size: 0.85rem; line-height: 1.45; }
+.ad-cropper__actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.ad-cropper__actions .ad-btn { flex: 1 1 auto; }
+
+@media (min-width: 561px) {
+  .ad-cropper { width: 520px; max-width: 100%; padding: 22px; gap: 14px; }
+  .ad-cropper__actions .ad-btn { flex: 0 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ad-cropper-overlay { animation: none; }
+}
+
 /* ---- error de render (en vez de pantalla en blanco) ---- */
 .ad-error { border: 1px solid rgba(255,79,118,0.35); border-radius: var(--ad-radius); background: rgba(255,79,118,0.08); padding: 18px; display: grid; gap: 10px; }
 .ad-error h3 { display: flex; align-items: center; gap: 8px; font-size: 1.02rem; font-weight: 800; color: #ffc1ce; }
@@ -730,7 +939,7 @@ body.ad-body { min-height: 100vh; }
 .ad-row__avatar { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 10px; background: var(--pb-blue-tint-12); color: var(--pb-brand-bright); font-weight: 800; }
 .ad-row__main { min-width: 0; }
 .ad-row__main strong { display: block; font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ad-row__main small { display: block; color: var(--pb-muted); font-size: 0.78rem; }
+.ad-row__main small { display: block; color: var(--pb-muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad-row__actions { display: flex; gap: 7px; align-items: center; }
 
 /* ---- section intro / counter ---- */
@@ -754,6 +963,21 @@ body.ad-body { min-height: 100vh; }
 .ad-slot--empty { border-style: dashed; color: var(--pb-muted); justify-items: start; grid-template-columns: 34px 1fr; min-height: 60px; align-items: center; font-size: 0.85rem; }
 .ad-slot--empty .ad-slot__order { background: var(--pb-white-06); color: var(--pb-muted-2); }
 
+/* Bloques de la sección Inicio: antes iban con estilos inline en home.js, que
+   ganaban a cualquier media query y no dejaban reacomodarlos en mobile. */
+.ad-home-add { margin-top: 14px; max-width: 420px; }
+.ad-save-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+/* Aviso de curación del inicio pendiente de guardar. En ámbar y no en rojo a
+   propósito: no es un error, es que falta un paso. */
+.ad-home-dirty {
+  margin-bottom: 12px;
+  border-color: color-mix(in srgb, var(--ad-amber) 55%, transparent);
+  background: color-mix(in srgb, var(--ad-amber) 10%, transparent);
+}
+.ad-home-dirty p { margin: 0; color: var(--pb-text); font-size: 0.9rem; line-height: 1.5; }
+.ad-home-dirty em { color: var(--ad-amber); font-style: normal; font-weight: 700; }
+
 /* ---- categories ---- */
 .ad-cat { border: 1px solid var(--pb-line); border-radius: var(--ad-radius-sm); background: var(--pb-white-04); padding: 16px; margin-top: 12px; }
 .ad-cat.is-hidden { opacity: 0.6; }
@@ -770,11 +994,14 @@ body.ad-body { min-height: 100vh; }
 /* menú "⋯" de acciones (Ocultar / Eliminar) */
 .ad-menu { position: relative; display: inline-flex; }
 .ad-menu__panel {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; min-width: 170px;
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 110; min-width: 170px;
   background: var(--pb-surface-3); border: 1px solid var(--pb-line-strong); border-radius: var(--ad-radius-sm);
   box-shadow: 0 18px 40px rgba(0,0,0,0.45); padding: 6px; display: grid; gap: 2px;
 }
 .ad-menu__panel[hidden] { display: none; }
+.ad-menu.is-open .ad-menu__panel { animation: adPopoverIn .16s cubic-bezier(.4,0,.2,1) both; transform-origin: top right; }
+.ad-menu.is-flip-up .ad-menu__panel { top: auto; bottom: calc(100% + 6px); }
+.ad-menu.is-flip-up.is-open .ad-menu__panel { transform-origin: bottom right; }
 .ad-menu.is-open [data-menu-toggle] { border-color: rgba(90,180,233,0.45); }
 .ad-menu__item {
   display: flex; align-items: center; gap: 9px; min-height: 38px; padding: 0 11px; width: 100%;
@@ -798,30 +1025,13 @@ body.ad-body { min-height: 100vh; }
 .ad-type-chip__del .ad-ico { width: 12px; height: 12px; }
 .ad-type-chip--add { cursor: pointer; color: var(--pb-muted); border: 1px dashed var(--pb-line-strong); background: transparent; }
 
-/* ---- combos ---- */
-.ad-combos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-.ad-combo-card { border: 1px solid var(--pb-line); border-radius: var(--ad-radius); background: linear-gradient(145deg, rgba(17,25,37,0.9), rgba(9,14,20,0.9)); padding: 14px; display: grid; gap: 12px; }
-.ad-combo-card.is-inactive { opacity: 0.6; }
-.ad-combo-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.ad-combo-card__head h3 { font-size: 1.02rem; font-weight: 700; }
-.ad-combo-items { display: grid; gap: 7px; }
-.ad-combo-item { display: grid; grid-template-columns: 38px minmax(0,1fr) auto; gap: 10px; align-items: center; }
-.ad-combo-item img { width: 38px; height: 38px; border-radius: 8px; object-fit: contain; background: var(--pb-white-06); }
-.ad-combo-item small { color: var(--pb-muted); font-size: 0.76rem; }
-.ad-combo-item strong { font-size: 0.84rem; font-weight: 600; }
-.ad-combo-item__qty { color: var(--pb-muted); font-size: 0.8rem; font-weight: 700; }
-.ad-combo-card__price { display: flex; align-items: baseline; gap: 9px; padding-top: 11px; border-top: 1px solid var(--pb-line); flex-wrap: wrap; }
-.ad-combo-card__price .ad-price { font-size: 1.4rem; }
-.ad-combo-card__price s { color: var(--pb-muted); font-weight: 600; font-size: 0.95rem; }
-.ad-combo-card__save { margin-left: auto; }
-
-/* combo builder rows */
-.ad-builder-row { display: grid; grid-template-columns: 44px minmax(0,1.4fr) minmax(0,1fr) 76px auto; gap: 9px; align-items: end; }
-.ad-builder-row img { width: 44px; height: 44px; border-radius: 9px; object-fit: contain; background: var(--pb-white-06); align-self: center; }
-.ad-builder-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px; border-radius: var(--ad-radius-sm); background: var(--pb-blue-tint-08); border: 1px solid rgba(90,180,233,0.22); margin-top: 4px; }
-.ad-builder-summary__totals { display: flex; align-items: baseline; gap: 12px; }
-.ad-builder-summary__totals .ad-price { font-size: 1.6rem; }
-.ad-builder-summary__totals s { color: var(--pb-muted); font-weight: 600; }
+/* ---- informe a medida ---- */
+.ad-rep-medida { margin-bottom: 14px; }
+.ad-rep-medida__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.ad-rep-medida__head h3 { font-size: 1.05rem; font-weight: 700; margin: 2px 0 4px; }
+/* auto-fit y no columnas fijas: los cuatro filtros entran en una fila en
+   escritorio y se apilan solos en el panel angosto, sin media query aparte. */
+.ad-rep-medida__filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 
 /* ---- settings status ---- */
 .ad-status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
@@ -851,9 +1061,14 @@ body.ad-body { min-height: 100vh; }
   .ad-topbar__sidebar-toggle { display: none; }
   .ad-main { padding: 14px 14px calc(78px + env(safe-area-inset-bottom, 0px)); }
 
-  .ad-topbar { position: relative; top: auto; flex-direction: column; align-items: stretch; gap: 12px; margin: -14px -14px 14px; padding: 14px; }
-  .ad-topbar__actions { justify-content: stretch; }
-  .ad-topbar__actions > * { flex: 1; }
+  /* La fila se mantiene (título a la izquierda, chip a la derecha) y el chip
+     queda pegado arriba (align-items: flex-start): si el subtítulo no
+     entra en una línea, envuelve a una segunda sin recortarse ni empujar
+     el chip hacia abajo. */
+  .ad-topbar { position: relative; top: auto; align-items: flex-start; gap: 10px; margin: -14px -14px 14px; padding: 14px; }
+  .ad-topbar__title { min-width: 0; }
+  .ad-topbar__title h1 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ad-topbar__actions { padding-top: 2px; }
   .ad-search { flex: 1 1 100%; }
   .ad-search input { width: 100%; }
 
@@ -866,28 +1081,44 @@ body.ad-body { min-height: 100vh; }
 
   .ad-tabbar {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 80;
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    /* Las columnas salen del número real de tabs (grid-auto-flow: column), no de
+       un repeat(5) fijo: si NAV cambia cuántas secciones son primary, la barra
+       sigue repartiendo el ancho completo y no deja un hueco a la derecha. */
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--pb-line);
     background: rgba(5,7,9,0.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   }
   .ad-tab {
     display: grid; grid-template-rows: 22px auto; justify-items: center; align-content: center; gap: 4px;
-    min-height: 54px; border: 0; border-radius: 14px; background: transparent;
-    color: var(--pb-muted); font: inherit; font-size: 0.66rem; font-weight: 700; cursor: pointer;
+    min-width: 0; min-height: 54px; padding: 4px 2px; border: 0; border-radius: 14px; background: transparent;
+    /* La etiqueta escala con el ancho: en pantallas de 360px "Dashboard" ya no
+       entraba y se cortaba con puntos suspensivos. */
+    color: var(--pb-muted); font: inherit; font-size: clamp(0.55rem, 2.6vw, 0.66rem); font-weight: 700; cursor: pointer;
   }
   .ad-tab .ad-ico { width: 22px; height: 22px; }
+  .ad-tab__label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.15; }
   .ad-tab.is-active { color: #fff; background: var(--pb-blue-tint-12); }
 
-  .ad-sheet.is-open { display: block; position: fixed; inset: 0; z-index: 90; }
-  .ad-sheet__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+  .ad-sheet {
+    display: block; position: fixed; inset: 0; z-index: 90;
+    visibility: hidden; opacity: 0; pointer-events: none;
+    transition: opacity .2s ease, visibility 0s linear .2s;
+  }
+  .ad-sheet.is-open { visibility: visible; opacity: 1; pointer-events: auto; transition-delay: 0s; }
+  .ad-sheet__backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    opacity: 0; transition: opacity .2s ease;
+  }
+  .ad-sheet.is-open .ad-sheet__backdrop { opacity: 1; }
   .ad-sheet__panel {
     position: absolute; left: 0; right: 0; bottom: 0;
     border-radius: 20px 20px 0 0; border-top: 1px solid var(--pb-line);
     background: #0a0f16; padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
-    animation: adSheet .22s ease both;
+    opacity: 0; transform: translateY(20px);
+    transition: transform .24s cubic-bezier(.4,0,.2,1), opacity .2s ease;
   }
-  @keyframes adSheet { from { transform: translateY(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .ad-sheet.is-open .ad-sheet__panel { opacity: 1; transform: none; }
   .ad-sheet__panel h3 { font-family: var(--font-heading); font-weight: 900; margin-bottom: 12px; }
   .ad-sheet__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 
@@ -900,6 +1131,25 @@ body.ad-body { min-height: 100vh; }
   .ad-builder-row { grid-template-columns: 40px minmax(0,1fr) auto; row-gap: 8px; }
   .ad-builder-row .ad-field:nth-child(3) { grid-column: 2 / -1; }
   .ad-builder-row .ad-field:nth-child(4) { grid-column: 2; }
+
+  /* Inicio (curación del home): con las 4 columnas del desktop el nombre se
+     quedaba con ~40px y salía como "N…", la marca y el precio se partían en
+     tres líneas y las flechas se encimaban con el texto. En mobile el slot
+     pasa a dos filas: datos arriba, y las 4 acciones abajo repartidas en
+     columnas iguales a todo el ancho. */
+  .ad-slot { grid-template-columns: 34px 52px minmax(0, 1fr); column-gap: 10px; row-gap: 10px; }
+  .ad-slot .ad-row__actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .ad-slot .ad-icon-btn { width: 100%; }
+  /* Dos líneas de nombre: en una sola seguía cortándose en productos largos. */
+  .ad-slot__main strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ad-slot__main small { display: block; margin-top: 2px; }
+  .ad-slot--empty { grid-template-columns: 34px minmax(0, 1fr); }
+
+  .ad-home-add { max-width: none; }
+  /* CTA a todo el ancho y la ayuda debajo: en fila se pisaban. */
+  .ad-save-row { display: grid; gap: 8px; }
+  .ad-save-row .ad-btn { width: 100%; }
+
   .ad-toast-host { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
 }
 
@@ -973,37 +1223,6 @@ body.ad-body { min-height: 100vh; }
   /* las tablas de informe SÍ se muestran en móvil (con scroll), a diferencia de .ad-table-wrap */
   .ad-rep-scroll .ad-table { min-width: 640px; }
 }
-
-/* ---- selección múltiple de productos + acciones en lote ----------------- */
-/* La barra aparece solo con algo seleccionado: no ocupa espacio permanente ni
-   compite con los filtros. */
-.ad-bulkbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 10px 0 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--pb-brand);
-  border-radius: var(--ad-radius);
-  background: var(--pb-blue-tint-12);
-}
-.ad-bulkbar__count { font-size: 0.86rem; font-weight: 700; color: var(--pb-text); }
-.ad-bulkbar__select { min-width: 200px; }
-.ad-bulkbar .ad-link-btn { margin-left: auto; }
-
-/* Objetivo táctil de 44px sin agrandar la casilla visible. */
-.ad-check {
-  display: inline-grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: -10px;
-  cursor: pointer;
-}
-.ad-check input { width: 17px; height: 17px; accent-color: var(--pb-brand); cursor: pointer; }
-.ad-table tr.is-selected { background: var(--pb-blue-tint-08); }
-.ad-prod-card.is-selected { border-color: var(--pb-brand); background: var(--pb-blue-tint-08); }
 
 /* ---- conteo por subcategoría y aviso de productos sueltos --------------- */
 /* El nombre es un botón que renombra. Antes se veía como texto plano y nadie
@@ -1113,6 +1332,8 @@ body.ad-body { min-height: 100vh; }
   box-shadow: 0 18px 44px rgba(0,0,0,0.5);
 }
 .ad-user__menu[hidden] { display: none; }
+.ad-user.is-open .ad-user__menu { animation: adPopoverIn .16s cubic-bezier(.4,0,.2,1) both; transform-origin: top right; }
+@keyframes adPopoverIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 .ad-user__email {
   padding: 6px 10px 8px; margin: 0;
   color: var(--pb-muted); font-size: 0.76rem;
@@ -1195,9 +1416,9 @@ body.ad-body { min-height: 100vh; }
 }
 
 @media (max-width: 768px) {
-  /* La topbar se apila y .ad-topbar__actions > * pasa a flex:1; el chip se
-     mantiene pegado a la derecha y con el nombre más corto. */
-  #adminUser { justify-content: flex-end; }
+  /* El chip se mantiene pegado a la derecha, en la misma línea que el
+     título, con el nombre más corto para dejarle espacio. */
+  #adminUser { justify-content: flex-end; flex: 0 0 auto; }
   .ad-user__id strong { max-width: 12ch; }
 }
 

@@ -5,25 +5,24 @@
    Mantiene un registro key → renderFn; las secciones piden re-render con
    requestRerender() en vez de llamarse entre sí.
    ============================================================================ */
-import { state } from "./state.js?v=adm-7d237d02";
-import { NAV } from "./config.js?v=adm-7d237d02";
-import { $, $$, esc, ico } from "./helpers.js?v=adm-7d237d02";
-import { showViewError } from "./view.js?v=adm-7d237d02";
-import { renderDashboard } from "./sections/dashboard.js?v=adm-7d237d02";
-import { renderProducts } from "./sections/products.js?v=adm-7d237d02";
-import { renderPricing } from "./sections/pricing.js?v=adm-7d237d02";
-import { renderHome } from "./sections/home.js?v=adm-7d237d02";
-import { renderCategories } from "./sections/categories.js?v=adm-7d237d02";
-import { renderCombos } from "./sections/combos.js?v=adm-7d237d02";
-import { renderAccess } from "./sections/access.js?v=adm-7d237d02";
-import { renderSettings } from "./sections/settings.js?v=adm-7d237d02";
-import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-7d237d02";
-import { canWrite } from "./permissions.js?v=adm-7d237d02";
-import { renderUserChip } from "./user-chip.js?v=adm-7d237d02";
+import { state } from "./state.js?v=adm-ee26d7ee";
+import { NAV } from "./config.js?v=adm-ee26d7ee";
+import { $, $$, esc, ico } from "./helpers.js?v=adm-ee26d7ee";
+import { showViewError } from "./view.js?v=adm-ee26d7ee";
+import { renderDashboard } from "./sections/dashboard.js?v=adm-ee26d7ee";
+import { renderProducts } from "./sections/products.js?v=adm-ee26d7ee";
+import { renderPricing } from "./sections/pricing.js?v=adm-ee26d7ee";
+import { renderHome } from "./sections/home.js?v=adm-ee26d7ee";
+import { renderCategories } from "./sections/categories.js?v=adm-ee26d7ee";
+import { renderAccess } from "./sections/access.js?v=adm-ee26d7ee";
+import { renderSettings } from "./sections/settings.js?v=adm-ee26d7ee";
+import { openProductDrawer } from "./drawers/product-drawer.js?v=adm-ee26d7ee";
+import { canWrite } from "./permissions.js?v=adm-ee26d7ee";
+import { renderUserChip } from "./user-chip.js?v=adm-ee26d7ee";
 
 const renderers = {
   dashboard: renderDashboard, products: renderProducts, pricing: renderPricing,
-  home: renderHome, categories: renderCategories, combos: renderCombos,
+  home: renderHome, categories: renderCategories,
   access: renderAccess, settings: renderSettings,
 };
 
@@ -66,6 +65,9 @@ export function buildChrome() {
   const secondary = NAV.filter((n) => !n.primary);
 
   applySidebarState(getSidebarCollapsed());
+  // El primer estado viene de localStorage: se aplica sin animación. Las
+  // interacciones posteriores ya pueden transicionar suavemente.
+  requestAnimationFrame(() => $("#adminShell")?.setAttribute("data-motion-ready", ""));
 
   nav.innerHTML =
     `<span class="ad-nav__group-label">Operación</span>` +
@@ -73,13 +75,14 @@ export function buildChrome() {
     `<span class="ad-nav__group-label">Configuración</span>` +
     secondary.map(navItem).join("");
 
-  // tab-bar móvil: 4 primarias + "Más"
+  // tab-bar móvil: las secciones primary + "Más" (el CSS reparte las columnas
+  // según cuántos botones haya, así que agregar/quitar una primary no rompe la barra).
   $("#adminTabbar").innerHTML =
     primary.map((n) => `
       <button class="ad-tab" type="button" data-go="${n.key}">
-        ${ico(n.icon)}${esc(n.label)}
+        ${ico(n.icon)}<span class="ad-tab__label">${esc(n.label)}</span>
       </button>`).join("") +
-    `<button class="ad-tab" type="button" data-sheet-open>${ico("menu")}Más</button>`;
+    `<button class="ad-tab" type="button" data-sheet-open>${ico("menu")}<span class="ad-tab__label">Más</span></button>`;
 
   // sheet "Más"
   $("#adminSheetGrid").innerHTML =

@@ -16,8 +16,8 @@
     <!-- tokens + card pública: para renderizar la card real de la tienda en la
          vista previa del formulario de producto (Fase 3). -->
     <link rel="stylesheet" href="css/tokens.css?v=anim-1" />
-    <link rel="stylesheet" href="css/components/cards.css?v=anim-1" />
-    <link rel="stylesheet" href="css/admin-dashboard.css?v=roles-usuarios" />
+    <link rel="stylesheet" href="css/components/cards.css?v=sin-combos-1" />
+    <link rel="stylesheet" href="css/admin-dashboard.css?v=tuteo-1" />
     <link rel="stylesheet" href="css/dropdown.css?v=anim-1" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -31,9 +31,9 @@
     <script src="js/supabase-config.js" defer></script>
     <script src="js/whatsapp-config.js?v=num-2026-08" defer></script>
     <script src="js/product-data.js" defer></script>
-    <script src="js/db.js?v=roles-usuarios" defer></script>
+    <script src="js/db.js?v=tuteo-1" defer></script>
     <script src="js/auth.js?v=roles-usuarios" defer></script>
-    <script src="js/icons.js?v=roles-usuarios" defer></script>
+    <script src="js/icons.js?v=sin-combos-1" defer></script>
     <script src="js/dropdown.js?v=resize-fix-1" defer></script>
     <!-- Generación de PDF de los informes (vendorizado, sin depender de CDN en vivo) -->
     <script src="js/vendor/jspdf.umd.min.js?v=1" defer></script>
@@ -44,7 +44,7 @@
          scripts/bump-admin-version.mjs (lo corre solo scripts/guardar.sh).
          boot-guard.js carga main.js con import() dinámico para mostrar un error
          con botón Reintentar si algo falla (antes quedaba la pantalla en negro). -->
-    <script src="js/admin/boot-guard.js?v=adm-7d237d02" defer></script>
+    <script src="js/admin/boot-guard.js?v=adm-ee26d7ee" defer></script>
   </head>
   <body class="ad-body">
     <div class="ad-app" data-anim="on" id="adminApp">
@@ -68,7 +68,6 @@
         <aside class="ad-sidebar" aria-label="Navegación del panel">
           <a class="ad-brand" href="index.html" aria-label="Ir a la tienda">
             <img src="img/icons/logo.png" alt="" />
-            <span><strong>Javy</strong><small>Admin</small></span>
           </a>
           <nav class="ad-nav" id="adminNav" aria-label="Secciones"></nav>
           <button class="ad-logout" id="adminLogoutBtn" type="button">

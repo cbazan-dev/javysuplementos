@@ -10,6 +10,13 @@
   margin-top: var(--section-gap);
 }
 
+/* `display: flex` le gana al [hidden] del navegador, así que sin esta regla una
+   sección oculta por JS seguía ocupando lugar: se le ponía el atributo, pero
+   igual se veían el título, la bajada y un hueco donde iban las cards. */
+.top-products[hidden] {
+  display: none;
+}
+
 .top-products__list {
   display: grid;
   grid-auto-rows: auto;
@@ -183,6 +190,40 @@
   white-space: nowrap;
 }
 
+/* La categoría va debajo de la marca: da contexto sin competir con el estado
+   ni con el precio. El contenido es texto informativo, no un filtro. Va
+   atenuada (más que la marca, que ya usa --muted) para que no compita en
+   brillo con la marca ni con el nombre del producto. */
+.product-card__category {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  /* Respaldo para páginas estáticas todavía no regeneradas (sin los spans
+     de familia/tipo de abajo): que el texto plano se vea atenuado y no con
+     el color por defecto del navegador. */
+  color: var(--muted-2);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.product-card__category-family {
+  color: var(--muted-2);
+}
+
+.product-card__category-sep {
+  padding: 0 1px;
+  color: var(--muted-2);
+  opacity: 0.65;
+}
+
+.product-card__category-type {
+  color: var(--muted);
+}
+
 .product-card__status {
   flex-shrink: 0;
   padding: 4px 10px;
@@ -275,38 +316,6 @@
   .product-card__price-old {
     font-size: 0.85rem;
   }
-}
-
-/* ===== Cards de combo (home) ===== */
-.combo-card__desc {
-  color: var(--muted);
-  font-size: 0.9rem;
-  margin: 4px 0 8px;
-}
-
-.combo-card__items {
-  list-style: none;
-  margin: 0 0 10px;
-  padding: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.combo-card__items li {
-  position: relative;
-  padding-left: 16px;
-  font-size: 0.88rem;
-}
-
-.combo-card__items li::before {
-  content: "•";
-  position: absolute;
-  left: 4px;
-  color: var(--accent);
-}
-
-.combo-card__items span {
-  color: var(--muted);
 }
 
 .product-card__pres {
@@ -625,6 +634,10 @@
   .product-card__status {
     padding: 3px 8px;
     font-size: 0.58rem;
+  }
+
+  .product-card__category {
+    font-size: 0.62rem;
   }
 
   .product-card__name {
