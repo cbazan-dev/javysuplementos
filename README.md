@@ -339,7 +339,8 @@ casillas, qué precios se incluyen. La tabla en pantalla suma una columna por pr
 línea de detalle. Los productos se agrupan por familia (Proteínas, Creatina) y, dentro de ella, por
 subcategoría (Whey, ISO, saborizada…); los cargados directo en la familia van primero, sin subtítulo.
 Bajo el nombre de cada producto van su marca y su presentación (`ON · 5 lb`), para distinguir dos
-formatos del mismo producto. Los precios que no estén asignados salen como `—`, y si
+formatos del mismo producto. La casilla *Incluir sabores disponibles* suma otra línea con los sabores
+en stock (hasta seis, luego `+N más`); los agotados y los productos sin sabor no la llevan. Los precios que no estén asignados salen como `—`, y si
 el informe lleva precios internos el propio documento lo advierte.
 
 ---
