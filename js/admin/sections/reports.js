@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-41c956cf";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-41c956cf";
-import { paint } from "../view.js?v=adm-41c956cf";
-import { toast } from "../ui.js?v=adm-41c956cf";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-41c956cf";
+import { state, catById, families, typesOf } from "../state.js?v=adm-f1bd090d";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-f1bd090d";
+import { paint } from "../view.js?v=adm-f1bd090d";
+import { toast } from "../ui.js?v=adm-f1bd090d";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-f1bd090d";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -120,6 +120,16 @@ function cardMedida() {
       </div>
       <p class="ad-field__help">Los precios internos no se publican en la tienda: el PDF sale marcado como de uso interno.</p>
     </div>
+    <div class="ad-field ad-rep-medida__precios">
+      <span class="ad-field__label">Detalle del producto</span>
+      <div class="ad-rep-opts ad-rep-opts--row">
+        <label class="ad-rep-opt">
+          <input type="checkbox" data-rep-opt="sabores" />
+          <span>Incluir sabores disponibles</span>
+        </label>
+      </div>
+      <p class="ad-field__help">Suma una línea con los sabores que hay en stock. Sin marcar, el PDF queda más corto para mandarlo por WhatsApp.</p>
+    </div>
     <div class="ad-save-row">
       <button class="ad-btn ad-btn--primary" type="button" data-rep="medida">${ico("file-text")}Generar informe</button>
     </div>
@@ -145,7 +155,10 @@ function leerFiltros(container) {
    que ya existía antes de que hubiera precios internos. */
 function preciosSeleccionados(container) {
   const on = (key) => !!container.querySelector(`[data-rep-price="${key}"]`)?.checked;
-  return { venta: on("venta"), revendedor: on("revendedor"), javy: on("javy") };
+  return {
+    venta: on("venta"), revendedor: on("revendedor"), javy: on("javy"),
+    sabores: !!container.querySelector('[data-rep-opt="sabores"]')?.checked,
+  };
 }
 
 function filtrarProductos(f) {
@@ -215,6 +228,9 @@ function repMedida(f, sel) {
   if (sel.venta) columns.push("Precio", "Antes (oferta)");
   if (sel.revendedor) columns.push("Revendedor");
   if (sel.javy) columns.push("Javy");
+  // La tabla en pantalla es la vista previa del PDF: si el informe lleva sabores,
+  // tienen que verse antes de generarlo.
+  if (sel.sabores) columns.push("Sabores");
   columns.push("Estado");
 
   const rows = products.map((p) => {
@@ -222,6 +238,7 @@ function repMedida(f, sel) {
     if (sel.venta) row.push(peso(p.price), hasOffer(p) ? peso(p.old_price) : "—");
     if (sel.revendedor) row.push(pesoOpt(p.reseller_price));
     if (sel.javy) row.push(pesoOpt(p.javy_price));
+    if (sel.sabores) row.push(flavorsLabel(p).replace(/^Sabores: /, "") || "—");
     row.push(isAvailable(p) ? "Disponible" : "Agotado");
     return row;
   });
@@ -249,7 +266,7 @@ function repMedida(f, sel) {
     // no son públicos, el propio documento tiene que decirlo.
     metaExtra: interno ? "Uso interno — contiene precios que no se publican en la tienda" : "",
     pdf: {
-      products: pdfCatalogItems(products, detalle, principal),
+      products: pdfCatalogItems(products, detalle, principal, sel.sabores),
       detailLabel: elegidos.length > 1 ? "Otros precios" : "",
     },
   };
@@ -301,6 +318,21 @@ function categoryLabel(p) {
   return p.category || (p.category_id ? (catById(p.category_id)?.name || "—") : "—");
 }
 
+/* Sabores que hay en stock, para la línea extra del PDF. Los agotados quedan
+   fuera: esta lista se manda por WhatsApp y no puede ofrecer lo que no hay. Con
+   muchos sabores se corta y se cuenta el resto, o una sola proteína estiraría su
+   fila media página. */
+const MAX_SABORES = 6;
+
+function flavorsLabel(p) {
+  if (p.flavor_mode === "no_flavor") return "";
+  const nombres = (p.flavors || []).filter((f) => f.available !== false).map((f) => f.name).filter(Boolean);
+  if (!nombres.length) return "";
+  const visibles = nombres.slice(0, MAX_SABORES);
+  const resto = nombres.length - visibles.length;
+  return `Sabores: ${visibles.join(", ")}${resto ? ` +${resto} más` : ""}`;
+}
+
 // Subcategoría del producto (Whey, ISO, saborizada…). Vacía si el producto está
 // cargado directo en la familia: ahí no hay escalón que mostrar.
 function subfamilyLabel(p) {
@@ -320,7 +352,7 @@ function familyLabel(p) {
 // columnas; el catálogo se agrupa por categoría principal solamente al exportar.
 // `price` permite que un informe muestre otro precio como destacado (la lista
 // de precios lo usa cuando el admin pide solo revendedor o solo Javy).
-function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.price)) {
+function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.price), conSabores = false) {
   return products.map((p) => ({
     name: p.name || "—",
     brand: p.brand || "",
@@ -329,6 +361,7 @@ function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.pric
     presentation: p.presentation || "",
     category: familyLabel(p),
     subcategory: subfamilyLabel(p),
+    flavors: conSabores ? flavorsLabel(p) : "",
     price: price(p),
     detail: detail(p),
     image: p.image || "",
