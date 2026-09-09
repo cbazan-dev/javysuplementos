@@ -587,10 +587,18 @@ body {
 .hero__trust {
   display: flex;
   flex-wrap: wrap;
+  /* Centrados bajo el bloque de texto y botones, no pegados al margen
+     izquierdo: son el cierre del hero y leen mejor como una fila simetrica.
+     El resto de .hero__slogan sigue alineado a la izquierda en desktop, asi
+     que hace falta el align-self ademas del justify-content (uno centra la
+     caja dentro de la columna, el otro los chips dentro de la caja). */
+  align-self: center;
+  justify-content: center;
   gap: 8px 10px;
   margin-top: 18px;
   padding: 0;
   list-style: none;
+  text-align: center;
 }
 
 .hero__trust li {
@@ -636,6 +644,8 @@ body {
 
 .hero__visits {
   display: inline-flex;
+  /* Mismo criterio que .hero__trust: el badge cierra el hero centrado. */
+  align-self: center;
   align-items: center;
   gap: 8px;
   margin-top: clamp(16px, 2.4vw, 22px);
