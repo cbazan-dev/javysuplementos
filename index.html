@@ -152,6 +152,11 @@
           <div class="hero__button">
             <button class="btn btn--primary btn--lg hero__button--pri">Ver productos</button>
             <button class="btn btn--secondary btn--lg hero__button--sec">Abrir cotización</button>
+            <!-- Enlace real (no <button>): el catálogo es otra página, así que
+                 tiene que ser navegable, indexable y abrible en pestaña nueva.
+                 La transición entre páginas la agrega include-nav.js solo, al
+                 interceptar los <a> internos: no hace falta JS acá. -->
+            <a class="btn btn--ghost btn--lg hero__button--ter" href="/catalogo/">Ver catálogo completo</a>
           </div>
           <!-- Barra de confianza: responde las tres dudas que frenan a quien
                llega por primera vez (¿son originales?, ¿me llega?, ¿me van a

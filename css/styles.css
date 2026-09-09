@@ -800,7 +800,9 @@ body.page-transition-in .hero__img {
     width: 100%;
   }
 
-  .hero__button button {
+  /* .btn y no `button`: el tercer CTA del hero ("Ver catálogo completo") es un
+     <a>, y con el selector de elemento se quedaba a media caja en mobile. */
+  .hero__button .btn {
     flex: 1 1 100%;
     width: 100%;
   }
