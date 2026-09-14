@@ -337,13 +337,21 @@ function buildItemLabel(item) {
 
 /* El sabor siempre se declara. Callar cuando no hay sabor elegido dejaba a quien
    arma el pedido sin saber si el producto no lleva sabor o si falto elegirlo.
-   `forOrder` distingue el pedido (donde un sabor faltante es un error que hay
-   que ver) de una consulta de disponibilidad (donde todavia no toca elegirlo). */
+
+   Sin sabor elegido = producto sin sabor, y punto: la web NO deja agregar a la
+   cotizacion un producto con sabores sin elegir uno antes, asi que un item que
+   llega sin sabor es uno que no los maneja (un shaker no es ni un suplemento).
+   Poner ahi "por confirmar" solo mandaba a preguntar por el sabor de un vaso.
+
+   El unico caso que se senala es el contrario: consta que el producto SI maneja
+   sabores y aun asi no hay ninguno elegido. Eso no deberia pasar, y si pasa hay
+   que verlo antes de comprar, no despacharlo como "sin sabor". `forOrder` lo
+   reserva para el pedido; en una consulta de disponibilidad todavia no toca
+   elegir sabor, asi que ahi la linea se omite. */
 function buildItemFlavor(item, { forOrder = true } = {}) {
   if (item.flavor) return `Sabor: ${item.flavor}`;
-  if (item.has_flavors === false) return "Sin sabor";
-  if (item.has_flavors === true && forOrder) return "Sabor: FALTA ELEGIR";
-  return "Sabor: por confirmar";
+  if (item.has_flavors !== true) return "Sin sabor";
+  return forOrder ? "Sabor: FALTA ELEGIR" : "";
 }
 
 function updateConsultationBadge() {
@@ -770,7 +778,7 @@ function quoteSingleProduct(product, options = {}) {
   const item = productToQuoteItem(product, options);
   const message = [
     "Hola Javy, quiero cotizar este producto:",
-    `${buildItemLabel(item)} · ${buildItemFlavor(item, { forOrder: false })}`,
+    [buildItemLabel(item), buildItemFlavor(item, { forOrder: false })].filter(Boolean).join(" · "),
     item.price > 0 ? `Precio aprox: $${item.price.toFixed(2)}` : "",
     "",
     "Quiero saber disponibilidad, precio final y opciones de entrega.",
@@ -783,7 +791,7 @@ function askAvailability(product, options = {}) {
   const item = productToQuoteItem(product, options);
   const message = [
     "Hola Javy, quiero consultar disponibilidad de:",
-    `${buildItemLabel(item)} · ${buildItemFlavor(item, { forOrder: false })}`,
+    [buildItemLabel(item), buildItemFlavor(item, { forOrder: false })].filter(Boolean).join(" · "),
     "",
     "Me confirmas disponibilidad, precio final y opciones de entrega?",
   ].join("\n");

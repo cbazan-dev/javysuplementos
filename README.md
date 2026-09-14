@@ -271,11 +271,13 @@ Tres funciones de `js/cart.js` la construyen y las comparten los tres mensajes d
 - `getDisplayPresentation()` — compara la presentación parte por parte, así de
   `"4 lb - 56 servidas"` sobre `"Carnivor ISO 4 lb"` sobrevive `"56 servidas"`: ni se duplica el
   tamaño ni se pierden las servidas.
-- `buildItemFlavor()` — el sabor **siempre** se declara. `Sin sabor` solo cuando consta que el
-  producto no maneja sabores (`has_flavors`, guardado en el ítem desde `flavor_mode`); si el
-  producto está sin clasificar va `Sabor: por confirmar`, porque afirmar "sin sabor" sobre algo que
-  nadie verificó se lee como un hecho. `Sabor: FALTA ELEGIR` es una red de seguridad: la web obliga
-  a elegir sabor antes de agregar.
+- `buildItemFlavor()` — el sabor **siempre** se declara, y solo hay dos salidas normales:
+  `Sabor: <el elegido>` o `Sin sabor`. Un ítem que llega sin sabor es uno que no los maneja, porque
+  la web **no deja agregar a la cotización un producto con sabores sin elegir uno antes**; mandar a
+  "confirmar el sabor" de un shaker no tenía sentido. La única señal es la contraria: si consta que
+  el producto sí maneja sabores (`has_flavors`, guardado en el ítem desde `flavor_mode`) y aun así
+  no hay ninguno elegido, sale `Sabor: FALTA ELEGIR` — no debería pasar, y si pasa hay que verlo
+  antes de comprar en vez de despacharlo como "sin sabor".
 
 ---
 
