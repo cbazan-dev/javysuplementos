@@ -255,16 +255,43 @@ commitear). Para el sentido inverso (sembrar Supabase desde el fallback la prime
    `js/whatsapp-config.js` (`JAVY_WHATSAPP_NUMBER`).
 
 **Ese mensaje es la orden de pedido**: es el texto con el que se compra y se despacha, así que cada
-línea tiene que identificar el producto sin ambigüedad. Una línea se ve así:
+producto tiene que identificarse sin ambigüedad **y leerse de un vistazo en un teléfono**. Cada
+producto es un bloque de tres renglones separado por una línea en blanco:
 
 ```
-(x2) Nutrex · Creatina Monohidratada · 300 g · Sabor: Chocolate · $17.50 c/u = $35.00
+🧾 *PEDIDO · Domicilio*
+
+Carlos Bazán · 6000-0000
+📍 Dirección: San Miguelito, calle principal
+
+• *Creatina Monohidratada*
+Nutrex · 300 g
+Sin sabor — *2 unidades* · $17.50 c/u = $35.00
+
+Subtotal productos: $35.00
+💵 *TOTAL A PAGAR: $35.00*
 ```
 
-Tres funciones de `js/cart.js` la construyen y las comparten los tres mensajes del sitio
+**Por qué en bloques y no en una línea.** Medido sobre los 204 productos del catálogo, la línea de
+producto tiene una mediana de 82 caracteres y WhatsApp muestra ~38 en un teléfono: **el 100% se
+parte**. Eso no sería grave si se notara dónde termina un producto, pero el pedazo suelto de una
+línea partida parece un producto nuevo. Tres restricciones de WhatsApp mandan aquí:
+
+- **La sangría no sirve**: no hereda los espacios al partir una línea, la continuación vuelve a la
+  columna 0. Los únicos anclajes que aguantan son la viñeta, la negrita (`*así*`) y la línea en
+  blanco.
+- **No numerar los productos**: el `2.` se confunde con la cantidad, que es el dato más caro de
+  leer mal. Por eso la cantidad va en negrita y con la palabra completa (`*2 unidades*`), no como
+  el prefijo `(x2)`, que se perdía de vista.
+- **Ningún `*` suelto al inicio de línea**: WhatsApp lo toma como marcador de formato y se come el
+  texto. Las notas al pie usan `—`.
+
+Tres funciones de `js/cart.js` arman el contenido y las comparten los tres mensajes del sitio
 (cotización, `askAvailability` y `quoteSingleProduct`), para que no vuelvan a divergir:
 
-- `buildItemLabel()` — `Marca · Nombre · Presentación`. Omite la marca cuando el nombre ya la trae
+- `buildItemParts()` — devuelve `{ marca, nombre, presentación }` ya deduplicados; `buildItemLabel()`
+  los une con ` · ` para los mensajes de un solo producto, y `buildProductBlock()` los reparte en
+  renglones para la cotización. Omite la marca cuando el nombre ya la trae
   (`Nutrex BCAA`, 1 de cada 5 productos) y la presentación cuando ya está en el nombre. La
   comparación es por **palabras completas y sin tildes** (`quoteContainsWords()`): con un
   `includes()` a secas, `"12 lb"` contenía `"2 lb"` y la presentación desaparecía del pedido.
