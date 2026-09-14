@@ -155,7 +155,34 @@ function getLegacyProductSnapshot(id) {
     presentation: product.presentacion || "",
     image: product.imagen || QUOTE_FALLBACK_IMAGE,
     available: product.disponible !== false,
+    has_flavors: (product.sabores || []).length > 0,
   };
+}
+
+/* ¿Este producto maneja sabores? Tri-estado a proposito: true / false / null.
+   El null es "no se sabe" y existe porque hay productos sin clasificar
+   (flavor_mode = "needs_review" y ningun sabor cargado). Sobre esos NO se puede
+   afirmar "Sin sabor" en el mensaje: quien arma el pedido lo leeria como un
+   hecho verificado. */
+function resolveHasFlavors(product) {
+  if (typeof product.has_flavors === "boolean") return product.has_flavors;
+  if ((product.flavors || []).length) return true;
+
+  const mode = product.flavor_mode || product.modoSabor;
+  if (mode === "has_flavors") return true;
+  if (mode === "no_flavor") return false;
+  if (mode === "needs_review") return null;
+
+  // Catalogo local (js/product-data.js): no trae flavor_mode, solo la lista.
+  if (Array.isArray(product.sabores)) return product.sabores.length > 0;
+  return null;
+}
+
+/* Cotizaciones guardadas antes de que existiera el campo: si el item trae un
+   sabor elegido, el producto obviamente los maneja; si no, queda en "no se sabe". */
+function normalizeHasFlavors(item) {
+  if (typeof item.has_flavors === "boolean") return item.has_flavors;
+  return item.flavor ? true : null;
 }
 
 function normalizeQuoteItem(item) {
@@ -171,6 +198,7 @@ function normalizeQuoteItem(item) {
       image: item.image || QUOTE_FALLBACK_IMAGE,
       flavor: item.flavor || "",
       flavor_id: item.flavor_id || "",
+      has_flavors: normalizeHasFlavors(item),
       quantity: Math.max(1, Number(item.quantity || 1)),
     };
   }
@@ -186,6 +214,8 @@ function normalizeQuoteItem(item) {
       presentation: "",
       image: QUOTE_FALLBACK_IMAGE,
       flavor: item.flavor || "",
+      flavor_id: item.flavor_id || "",
+      has_flavors: normalizeHasFlavors(item),
       quantity: Math.max(1, Number(item.quantity || 1)),
     };
   }
@@ -193,6 +223,8 @@ function normalizeQuoteItem(item) {
   return {
     ...fallback,
     flavor: item.flavor || "",
+    flavor_id: item.flavor_id || "",
+    has_flavors: normalizeHasFlavors(item) ?? fallback.has_flavors,
     quantity: Math.max(1, Number(item.quantity || 1)),
   };
 }
@@ -209,6 +241,7 @@ function productToQuoteItem(product, options = {}) {
     image: product.image || product.imagen || QUOTE_FALLBACK_IMAGE,
     flavor: options.flavor || "",
     flavor_id: options.flavor_id || "",
+    has_flavors: resolveHasFlavors(product),
     quantity: Math.max(1, Number(options.quantity || 1)),
   };
 }
@@ -248,9 +281,69 @@ function formatMoney(price) {
   return value > 0 ? `$${value.toFixed(2)}` : "Consultar";
 }
 
+/* Comparacion de textos del catalogo: sin tildes, sin mayusculas y sin
+   puntuacion, para que "120 cápsulas" y "120 capsulas" sean lo mismo. */
+function quoteNormalize(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/* ¿`haystack` ya dice `needle`, como secuencia de PALABRAS completas?
+   Los espacios de guarda son el punto: con includes() a secas "12 lb" contiene
+   "2 lb" y la presentacion se perdia del mensaje. */
+function quoteContainsWords(haystack, needle) {
+  const needleText = quoteNormalize(needle);
+  if (!needleText) return false;
+  return ` ${quoteNormalize(haystack)} `.includes(` ${needleText} `);
+}
+
+/* La presentacion que TODAVIA hay que decir. Muchos nombres del catalogo ya
+   traen el tamaño adentro ("Nutricost Casein 2 lb"), asi que repetirlo entero
+   ensucia la linea del pedido; pero omitir la presentacion completa por eso
+   tiraba tambien las servidas. Se compara parte por parte: de
+   "4 lb - 56 servidas" sobre "Carnivor ISO 4 lb" solo sobrevive "56 servidas". */
 function getDisplayPresentation(item) {
-  if (!item.presentation) return "";
-  return item.name.toLowerCase().includes(item.presentation.toLowerCase()) ? "" : ` ${item.presentation}`;
+  const name = String(item.name || "");
+  const presentation = String(item.presentation || "").trim();
+  if (!presentation) return "";
+  if (quoteContainsWords(name, presentation)) return "";
+
+  const parts = presentation.split(/\s*[-–·|,]\s*/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return presentation;
+
+  const missing = parts.filter((part) => !quoteContainsWords(name, part));
+  return missing.length ? missing.join(" - ") : "";
+}
+
+/* Identidad del producto para el mensaje: Marca · Nombre · Presentacion.
+   Es el unico lugar donde se arma, porque el mensaje de WhatsApp ES la orden de
+   pedido: sin la marca, "Shaker Unidad" es el de Animal, C4, Mutant o Xtend, y
+   "Creatine Monohydrate 60 servidas" es Nutrex u Olympus. La marca se omite
+   cuando el nombre ya la trae ("Nutrex BCAA"), que es 1 de cada 5 productos. */
+function buildItemLabel(item) {
+  const name = String(item.name || "").trim() || "Producto sin nombre";
+  const brand = String(item.brand || "").trim();
+  const presentation = getDisplayPresentation(item);
+
+  const parts = [];
+  if (brand && !quoteContainsWords(name, brand)) parts.push(brand);
+  parts.push(name);
+  if (presentation) parts.push(presentation);
+  return parts.join(" · ");
+}
+
+/* El sabor siempre se declara. Callar cuando no hay sabor elegido dejaba a quien
+   arma el pedido sin saber si el producto no lleva sabor o si falto elegirlo.
+   `forOrder` distingue el pedido (donde un sabor faltante es un error que hay
+   que ver) de una consulta de disponibilidad (donde todavia no toca elegirlo). */
+function buildItemFlavor(item, { forOrder = true } = {}) {
+  if (item.flavor) return `Sabor: ${item.flavor}`;
+  if (item.has_flavors === false) return "Sin sabor";
+  if (item.has_flavors === true && forOrder) return "Sabor: FALTA ELEGIR";
+  return "Sabor: por confirmar";
 }
 
 function updateConsultationBadge() {
@@ -584,14 +677,16 @@ function computeQuoteTotals(items, method = getQuoteMethod()) {
 }
 
 function buildProductLine(item) {
-  const name = `${item.name}${getDisplayPresentation(item)}`;
-  const flavorText = item.flavor ? ` | Sabor: ${item.flavor}` : "";
-  const qty = Number(item.quantity || 1);
+  const qty = Math.max(1, Number(item.quantity || 1));
+  const unit = Number(item.price) || 0;
+  // Con cantidad > 1 va el unitario ademas del total: la linea sola tenia que
+  // alcanzar para revisar la cuenta sin volver a abrir el catalogo.
+  const priceText = unit > 0
+    ? (qty > 1 ? `$${unit.toFixed(2)} c/u = $${(unit * qty).toFixed(2)}` : `$${unit.toFixed(2)}`)
+    : "Precio por confirmar";
+
   const qtyText = qty > 1 ? `(x${qty}) ` : "";
-  const priceText = Number(item.price) > 0
-    ? `  $${(Number(item.price) * qty).toFixed(2)}`
-    : "  Consultar";
-  return `${qtyText}${name}${flavorText}${priceText}`;
+  return `${qtyText}${[buildItemLabel(item), buildItemFlavor(item), priceText].join(" · ")}`;
 }
 
 function buildConsultationMessage() {
@@ -627,9 +722,10 @@ function buildConsultationMessage() {
   if (dataLines.length) lines.push(...dataLines, "");
   lines.push(...productLines, "");
 
+  // Antes iba "45.00 + 30.00 = 75.00": no decia de que producto era cada monto y
+  // ahora cada linea ya lleva su unitario y su total.
   if (lineTotals.length) {
-    const sumExpr = lineTotals.map((value) => value.toFixed(2)).join(" + ");
-    lines.push(`${sumExpr} = ${subtotal.toFixed(2)}`, "");
+    lines.push(`Subtotal productos: ${formatMoney(subtotal)}`, "");
   }
 
   // El domicilio se declara aunque los productos no tengan precio: si no, el
@@ -672,14 +768,10 @@ function openWhatsApp() {
 
 function quoteSingleProduct(product, options = {}) {
   const item = productToQuoteItem(product, options);
-  const flavorText = item.flavor ? `\nSabor: ${item.flavor}` : "";
-  const priceText = item.price > 0 ? `\nPrecio aprox: $${item.price.toFixed(2)}` : "";
   const message = [
-    `Hola Javy, quiero cotizar este producto: ${item.name}.`,
-    item.presentation ? `Presentacion: ${item.presentation}` : "",
-    item.brand ? `Marca: ${item.brand}` : "",
-    flavorText,
-    priceText,
+    "Hola Javy, quiero cotizar este producto:",
+    `${buildItemLabel(item)} · ${buildItemFlavor(item, { forOrder: false })}`,
+    item.price > 0 ? `Precio aprox: $${item.price.toFixed(2)}` : "",
     "",
     "Quiero saber disponibilidad, precio final y opciones de entrega.",
   ].filter(Boolean).join("\n");
@@ -690,13 +782,11 @@ function quoteSingleProduct(product, options = {}) {
 function askAvailability(product, options = {}) {
   const item = productToQuoteItem(product, options);
   const message = [
-    `Hola Javy, quiero consultar disponibilidad de ${item.name}.`,
-    item.brand ? `Marca: ${item.brand}` : "",
-    item.presentation ? `Presentacion: ${item.presentation}` : "",
-    item.flavor ? `Sabor: ${item.flavor}` : "",
+    "Hola Javy, quiero consultar disponibilidad de:",
+    `${buildItemLabel(item)} · ${buildItemFlavor(item, { forOrder: false })}`,
     "",
     "Me confirmas disponibilidad, precio final y opciones de entrega?",
-  ].filter(Boolean).join("\n");
+  ].join("\n");
 
   sendToWhatsapp(message);
 }

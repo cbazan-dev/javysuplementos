@@ -548,7 +548,9 @@ async function initProductPage() {
       btn.textContent = "Consultar disponibilidad";
       btn.classList.add("pdp__cta--ghost");
       btn.addEventListener("click", () => {
-        window.consultation?.askAvailability?.(product);
+        // Si el cliente alcanzo a elegir un sabor, la consulta lo lleva: sin el,
+        // la respuesta no sirve para un producto con doce sabores.
+        window.consultation?.askAvailability?.(product, getSelectedFlavor(product, false) || {});
       });
     });
   }

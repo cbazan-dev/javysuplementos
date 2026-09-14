@@ -250,9 +250,32 @@ commitear). Para el sentido inverso (sembrar Supabase desde el fallback la prime
 
 1. Cliente agrega producto → `window.consultation.addItem()`.
 2. Se guarda en `localStorage` con clave `javy-consultation` (clave legacy: `cart`).
-3. `buildConsultationMessage()` arma el texto (nombre, zona, items, cantidades, precios).
+3. `buildConsultationMessage()` arma el texto (datos de entrega, items, cantidades, precios).
 4. Se abre `https://wa.me/<numero>?text=...` con el mensaje. El número vive **solo** en
    `js/whatsapp-config.js` (`JAVY_WHATSAPP_NUMBER`).
+
+**Ese mensaje es la orden de pedido**: es el texto con el que se compra y se despacha, así que cada
+línea tiene que identificar el producto sin ambigüedad. Una línea se ve así:
+
+```
+(x2) Nutrex · Creatina Monohidratada · 300 g · Sabor: Chocolate · $17.50 c/u = $35.00
+```
+
+Tres funciones de `js/cart.js` la construyen y las comparten los tres mensajes del sitio
+(cotización, `askAvailability` y `quoteSingleProduct`), para que no vuelvan a divergir:
+
+- `buildItemLabel()` — `Marca · Nombre · Presentación`. Omite la marca cuando el nombre ya la trae
+  (`Nutrex BCAA`, 1 de cada 5 productos) y la presentación cuando ya está en el nombre. La
+  comparación es por **palabras completas y sin tildes** (`quoteContainsWords()`): con un
+  `includes()` a secas, `"12 lb"` contenía `"2 lb"` y la presentación desaparecía del pedido.
+- `getDisplayPresentation()` — compara la presentación parte por parte, así de
+  `"4 lb - 56 servidas"` sobre `"Carnivor ISO 4 lb"` sobrevive `"56 servidas"`: ni se duplica el
+  tamaño ni se pierden las servidas.
+- `buildItemFlavor()` — el sabor **siempre** se declara. `Sin sabor` solo cuando consta que el
+  producto no maneja sabores (`has_flavors`, guardado en el ítem desde `flavor_mode`); si el
+  producto está sin clasificar va `Sabor: por confirmar`, porque afirmar "sin sabor" sobre algo que
+  nadie verificó se lee como un hecho. `Sabor: FALTA ELEGIR` es una red de seguridad: la web obliga
+  a elegir sabor antes de agregar.
 
 ---
 
