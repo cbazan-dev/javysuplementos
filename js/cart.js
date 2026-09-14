@@ -323,16 +323,25 @@ function getDisplayPresentation(item) {
    pedido: sin la marca, "Shaker Unidad" es el de Animal, C4, Mutant o Xtend, y
    "Creatine Monohydrate 60 servidas" es Nutrex u Olympus. La marca se omite
    cuando el nombre ya la trae ("Nutrex BCAA"), que es 1 de cada 5 productos. */
-function buildItemLabel(item) {
+function buildItemParts(item) {
   const name = String(item.name || "").trim() || "Producto sin nombre";
   const brand = String(item.brand || "").trim();
-  const presentation = getDisplayPresentation(item);
 
-  const parts = [];
-  if (brand && !quoteContainsWords(name, brand)) parts.push(brand);
-  parts.push(name);
-  if (presentation) parts.push(presentation);
-  return parts.join(" · ");
+  return {
+    name,
+    // La marca se cae si el nombre ya la dice; si no, nadie sabe si el
+    // "Shaker Unidad" es el de Animal, C4, Mutant o Xtend.
+    brand: brand && !quoteContainsWords(name, brand) ? brand : "",
+    presentation: getDisplayPresentation(item),
+  };
+}
+
+/* Las mismas partes en una sola cadena. La usan los mensajes de UN producto
+   (askAvailability, quoteSingleProduct), donde no hay lista que separar y la
+   linea junta se lee bien. La cotizacion no: ahi cada pieza va en su renglon. */
+function buildItemLabel(item) {
+  const { name, brand, presentation } = buildItemParts(item);
+  return [brand, name, presentation].filter(Boolean).join(" · ");
 }
 
 /* El sabor siempre se declara. Callar cuando no hay sabor elegido dejaba a quien
@@ -684,17 +693,34 @@ function computeQuoteTotals(items, method = getQuoteMethod()) {
   };
 }
 
-function buildProductLine(item) {
+/* Un producto = un bloque de tres renglones, no una linea larga.
+
+   Medido sobre los 204 productos del catalogo, la linea de producto tiene una
+   mediana de 82 caracteres y WhatsApp muestra ~38 en un telefono: el 100% se
+   partia. Eso no seria grave si se notara donde termina un producto y empieza
+   el otro, pero el pedazo suelto de una linea partida parece un producto nuevo.
+   Y la sangria no ayuda: WhatsApp no hereda los espacios al partir, la
+   continuacion vuelve a la columna 0. Los unicos anclajes que aguantan son la
+   vineta, la negrita y la linea en blanco (la mete buildConsultationMessage).
+
+   Tampoco se numeran los productos: el "2." se confunde con la cantidad, que es
+   justo el dato mas caro de leer mal. Por eso la cantidad va en negrita y con
+   la palabra completa, en vez del "(x2)" de antes, que se perdia de vista. */
+function buildProductBlock(item) {
+  const { name, brand, presentation } = buildItemParts(item);
   const qty = Math.max(1, Number(item.quantity || 1));
   const unit = Number(item.price) || 0;
-  // Con cantidad > 1 va el unitario ademas del total: la linea sola tenia que
-  // alcanzar para revisar la cuenta sin volver a abrir el catalogo.
+
   const priceText = unit > 0
     ? (qty > 1 ? `$${unit.toFixed(2)} c/u = $${(unit * qty).toFixed(2)}` : `$${unit.toFixed(2)}`)
     : "Precio por confirmar";
+  const qtyText = `*${qty} ${qty > 1 ? "unidades" : "unidad"}*`;
 
-  const qtyText = qty > 1 ? `(x${qty}) ` : "";
-  return `${qtyText}${[buildItemLabel(item), buildItemFlavor(item), priceText].join(" · ")}`;
+  return [
+    `• *${name}*`,
+    [brand, presentation].filter(Boolean).join(" · "),
+    `${buildItemFlavor(item)} — ${qtyText} · ${priceText}`,
+  ].filter(Boolean);
 }
 
 function buildConsultationMessage() {
@@ -705,55 +731,59 @@ function buildConsultationMessage() {
   const dataLines = [];
   const name = getPanelFieldValue("quoteName");
   const phone = getPanelFieldValue("quotePhone");
-  if (name) dataLines.push(name);
-  if (phone) dataLines.push(phone);
+  // Dos datos cortos que gastaban un renglon cada uno.
+  const contacto = [name, phone].filter(Boolean).join(" · ");
+  if (contacto) dataLines.push(contacto);
   if (method === "ferguson") {
     const destino = getPanelFieldValue("quoteDestino");
     const cedula = getPanelFieldValue("quoteCedula");
-    if (destino) dataLines.push(`Destino: ${destino}`);
-    if (cedula) dataLines.push(`Cedula: ${cedula}`);
+    if (destino) dataLines.push(`📍 Destino: ${destino}`);
+    if (cedula) dataLines.push(`Cédula: ${cedula}`);
   } else if (method === "domicilio") {
     const direccion = getPanelFieldValue("quoteDireccion");
     const hora = getPanelFieldValue("quoteHora");
-    if (direccion) dataLines.push(`Direccion: ${direccion}`);
+    if (direccion) dataLines.push(`📍 Dirección: ${direccion}`);
     if (hora) dataLines.push(`Hora: ${hora}`);
   }
 
+  // El "" detras de cada bloque es el separador; el colapso de saltos del final
+  // se encarga de que no se acumulen.
   const productLines = items.length
-    ? items.map(buildProductLine)
-    : ["- Quiero cotizar suplementos disponibles."];
+    ? items.flatMap((item) => [...buildProductBlock(item), ""])
+    : ["Quiero cotizar suplementos disponibles."];
 
   const totals = computeQuoteTotals(items, method);
   const { lineTotals, subtotal, total, deliveryFee, needsDelivery, freeDelivery, hasUnpriced } = totals;
 
-  const lines = [config.title, ""];
+  const lines = [`🧾 *PEDIDO · ${config.title}*`, ""];
   if (dataLines.length) lines.push(...dataLines, "");
   lines.push(...productLines, "");
 
   // Antes iba "45.00 + 30.00 = 75.00": no decia de que producto era cada monto y
   // ahora cada linea ya lleva su unitario y su total.
   if (lineTotals.length) {
-    lines.push(`Subtotal productos: ${formatMoney(subtotal)}`, "");
+    lines.push(`Subtotal productos: ${formatMoney(subtotal)}`);
   }
 
   // El domicilio se declara aunque los productos no tengan precio: si no, el
   // cliente ve un total en el panel y un mensaje que no lo menciona.
   if (needsDelivery) {
     lines.push(freeDelivery
-      ? `Domicilio: GRATIS (${FREE_DELIVERY_MIN_UNITS} productos o mas)`
+      ? `Domicilio: GRATIS (${FREE_DELIVERY_MIN_UNITS} productos o más)`
       : `Domicilio: ${deliveryFee.toFixed(2)}`);
   }
 
   // Sin ningun producto con precio, un "Total a pagar: $4.00" solo dice el costo
   // del envio y se lee como si el pedido entero costara eso. Mejor no ponerlo.
   if (lineTotals.length) {
-    lines.push(`Total a pagar: ${formatMoney(total)}`);
+    lines.push(`💵 *TOTAL A PAGAR: ${formatMoney(total)}*`);
   }
 
+  if (needsDelivery && !freeDelivery || hasUnpriced) lines.push("");
   if (needsDelivery && !freeDelivery) {
-    lines.push("* El costo del domicilio puede variar segun la distancia; me lo confirman antes de despachar.");
+    lines.push("— El costo del domicilio puede variar según la distancia; me lo confirman antes de despachar.");
   }
-  if (hasUnpriced) lines.push("* Productos con precio por confirmar.");
+  if (hasUnpriced) lines.push("— Hay productos con precio por confirmar.");
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
