@@ -862,6 +862,18 @@ function renderProductCard(product) {
 
   card._javyProduct = product;
 
+  // Si la ruta guardada en la BD apunta a un archivo que ya no existe (404),
+  // se cae al mismo "imagen pendiente" que un producto sin imagen, en vez del
+  // ícono roto nativo del navegador.
+  const cardImg = card.querySelector(".product-card__img");
+  if (cardImg) {
+    cardImg.onerror = () => {
+      cardImg.onerror = null;
+      cardImg.src = "/img/products/product-placeholder.svg";
+      card.classList.add("product-card--image-pending");
+    };
+  }
+
   // "Agregar" abre el modal de selección (sabor + cantidad); la card ya no trae selects.
   card.querySelector(".product-card__btn--buy")?.addEventListener("click", () => {
     window.consultation?.openAddModal?.(product);
