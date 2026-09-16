@@ -160,6 +160,18 @@
       </div>
     `;
 
+    // Si la ruta guardada en la BD apunta a un archivo que ya no existe (404),
+    // se cae al mismo "imagen pendiente" que un producto sin imagen, en vez del
+    // ícono roto nativo del navegador.
+    const img = card.querySelector(".product-card__img");
+    if (img) {
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = "/img/products/product-placeholder.svg";
+        card.classList.add("product-card--image-pending");
+      };
+    }
+
     return card;
   }
 

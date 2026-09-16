@@ -277,6 +277,18 @@ function renderRelatedCard(product) {
 
   card._javyProduct = product;
 
+  // Si la ruta guardada en la BD apunta a un archivo que ya no existe (404),
+  // se cae al mismo "imagen pendiente" que un producto sin imagen, en vez del
+  // ícono roto nativo del navegador.
+  const relatedImg = card.querySelector(".product-card__img");
+  if (relatedImg) {
+    relatedImg.onerror = () => {
+      relatedImg.onerror = null;
+      relatedImg.src = "/img/products/product-placeholder.svg";
+      card.classList.add("product-card--image-pending");
+    };
+  }
+
   card.querySelector(".product-card__btn--buy")?.addEventListener("click", () => {
     window.consultation?.openAddModal?.(product);
   });
@@ -404,7 +416,10 @@ async function initProductPage() {
 
   const imgEl = document.getElementById("prod-image");
   imgEl.src = productImageSrc(product.image);
-  imgEl.onerror = () => { imgEl.onerror = null; imgEl.src = "/img/images/javi.webp"; };
+  // Si la imagen real da 404, se cae al mismo "imagen pendiente" que usan las
+  // cards (img/products/product-placeholder.svg), no a una foto de stock: esa
+  // foto no es del producto y confundía al mostrarse como si lo fuera.
+  imgEl.onerror = () => { imgEl.onerror = null; imgEl.src = "/img/products/product-placeholder.svg"; };
   imgEl.alt = product.name;
 
   document.getElementById("prod-title").textContent = product.name;
