@@ -13,7 +13,9 @@ edita a mano).
 Pasos:
 1. Pídeme los datos que falten: nombre, marca, categoría, precio, presentación,
    imagen, sabores (con disponibilidad de cada uno), beneficios[], descripcion[],
-   uso[]. **No inventes datos**: si falta algo, pregúntame.
+   uso[]. **No inventes datos**: si falta algo, pregúntame. Para los textos
+   (descripción corta/larga, beneficios, uso) sigue el flujo de `/redactar-producto`:
+   investiga en fuentes oficiales y redacta con su formato y tono.
 2. Dame el `INSERT` de SQL para Supabase según `supabase/schema.sql`
    (producto + sus sabores).
 3. Si hay imagen nueva, recuérdame guardarla en `img/products/` en **WebP**.
