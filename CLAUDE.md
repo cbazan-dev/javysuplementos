@@ -19,6 +19,7 @@ hacer cambios.
 Atajos rápidos:
 - Ver el sitio en vivo: **`/ver-sitio`**
 - Agregar un producto (sincroniza Supabase + `product-data.js`): **`/agregar-producto`**
+- Redactar los textos de un producto con datos verificados: **`/redactar-producto`**
 - Aligerar imágenes (PNG → WebP): **`/aligerar-imagenes`**
 - Revisar diseño + lógica de tus cambios: **`/revisar-cambios`**
 

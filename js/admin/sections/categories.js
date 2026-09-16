@@ -1,10 +1,10 @@
 /* ============================================================================
    Sección Categorías: familias y tipos (jerarquía), editar, ocultar y borrar.
    ============================================================================ */
-import { state, families, typesOf, catById } from "../state.js?v=adm-e87897bb";
-import { $, esc, ico } from "../helpers.js?v=adm-e87897bb";
-import { setView } from "../view.js?v=adm-e87897bb";
-import { emptyFeature, promptModal, confirmModal, toast, ensureMenuListeners } from "../ui.js?v=adm-e87897bb";
+import { state, families, typesOf, catById } from "../state.js?v=adm-32e4a3b7";
+import { $, esc, ico } from "../helpers.js?v=adm-32e4a3b7";
+import { setView } from "../view.js?v=adm-32e4a3b7";
+import { emptyFeature, promptModal, confirmModal, toast, ensureMenuListeners } from "../ui.js?v=adm-32e4a3b7";
 
 export function renderCategories() {
   if (!state.categoriesSupported) {

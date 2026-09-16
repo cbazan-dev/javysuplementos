@@ -49,6 +49,7 @@ manual, por chat.
 | `/estado-ramas` | Muestra el estado de cada rama: al día / por subir / por bajar / detrás de `main`. |
 | `/ver-sitio` | Levanta un servidor local para ver el sitio en vivo. |
 | `/agregar-producto` | Agrega un producto manteniendo Supabase y `product-data.js` sincronizados. |
+| `/redactar-producto` | Investiga el producto en fuentes oficiales y redacta descripción corta/larga, beneficios y modo de uso listos para pegar en el panel. |
 | `/aligerar-imagenes` | Convierte PNG pesados a WebP y actualiza las referencias. |
 | `/revisar-cambios` | Lanza en paralelo la revisión de diseño + lógica de tus cambios. |
 

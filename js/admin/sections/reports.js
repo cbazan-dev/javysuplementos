@@ -3,11 +3,11 @@
    actividad, con fecha de generación, vista en pantalla, impresión y PDF
    (guardar en el dispositivo o compartir).
    ============================================================================ */
-import { state, catById, families, typesOf } from "../state.js?v=adm-e87897bb";
-import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-e87897bb";
-import { paint } from "../view.js?v=adm-e87897bb";
-import { toast, progressOverlay } from "../ui.js?v=adm-e87897bb";
-import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-e87897bb";
+import { state, catById, families, typesOf } from "../state.js?v=adm-32e4a3b7";
+import { esc, ico, peso, pesoOpt, hasOffer, discountPct, isAvailable, isMissingImage, agoLabel } from "../helpers.js?v=adm-32e4a3b7";
+import { paint } from "../view.js?v=adm-32e4a3b7";
+import { toast, progressOverlay } from "../ui.js?v=adm-32e4a3b7";
+import { buildTable, printReport, slugify, buildReportPDF, saveOrShare } from "../export.js?v=adm-32e4a3b7";
 
 export function renderReportsTab(container) {
   paint(container, `
@@ -186,52 +186,33 @@ function filtrarProductos(f) {
   });
 }
 
-// Título que dice qué se filtró y qué precios trae: un PDF guardado sin esto no
-// se sabe qué contiene, y en el celular conviven varios informes parecidos.
-function tituloMedida(f, sel) {
-  const partes = [];
-  if (f.categoria.startsWith("fam:")) partes.push(catById(f.categoria.slice(4))?.name || "categoría");
-  else if (f.categoria.startsWith("cat:")) partes.push(catById(f.categoria.slice(4))?.name || "categoría");
-  if (f.marca) partes.push(f.marca);
-  if (f.estado !== "todos") partes.push(f.estado === "disponibles" ? "disponibles" : "agotados");
-  if (f.extra === "oferta") partes.push("en oferta");
-  if (f.extra === "inicio") partes.push("destacados del inicio");
-  if (f.extra === "sin-precio") partes.push("sin precio");
-  if (f.extra === "sin-imagen") partes.push("sin imagen");
-  // Solo con el precio de venta conserva el nombre de siempre, así que el
-  // archivo que ya se venía generando no cambia de nombre.
-  const precios = [sel.revendedor && "revendedor", sel.javy && "Javy"].filter(Boolean);
-  if (sel.venta && precios.length) precios.unshift("venta");
-  if (precios.length) {
-    const lista = precios.length > 1 ? `${precios.slice(0, -1).join(", ")} y ${precios.at(-1)}` : precios[0];
-    partes.push(`precio ${lista}`);
-  }
-  return partes.length ? `Lista de precios — ${partes.join(" · ")}` : "Lista de precios actuales";
-}
-
 /* `sel` decide qué precios salen. Las columnas de identificación y el estado van
-   siempre; "Antes (oferta)" solo acompaña al precio de venta, porque sin él un
-   precio tachado no dice nada.
+   siempre en la tabla de pantalla; "Antes (oferta)" solo acompaña al precio de
+   venta, porque sin él un precio tachado no dice nada.
 
    Los precios sin asignar salen como "—", igual que la columna de oferta cuando
    no hay oferta: en una tabla un hueco en blanco se lee como un fallo de
    generación, y "$0" sería directamente un dato falso.
 
-   En el PDF (formato catálogo) el precio grande es el primero que se pidió y los
-   demás van en la línea de detalle, para no romper ese diseño. */
+   Cada precio marcado tiene su propia columna en el catálogo (impresión/PDF),
+   con un color fijo por tipo (venta/revendedor/Javy) para poder compararlos de
+   un vistazo. Si el filtro puede traer agotados, se suma "Estado" como columna
+   aparte (sin color, como el resto de columnas de identificación). */
 function repMedida(f, sel) {
   const products = filtrarProductos(f)
     .slice()
     .sort((a, b) => (a.name || "").localeCompare(b.name || "", "es"));
 
   const columns = ["Producto", "Marca", "Categoría", "Presentación"];
-  if (sel.venta) columns.push("Precio", "Antes (oferta)");
-  if (sel.revendedor) columns.push("Revendedor");
-  if (sel.javy) columns.push("Javy");
+  const columnClasses = ["", "", "", ""];
+  if (sel.venta) { columns.push("Precio", "Antes (oferta)"); columnClasses.push("ad-price-col ad-price-col--venta", ""); }
+  if (sel.revendedor) { columns.push("Revendedor"); columnClasses.push("ad-price-col ad-price-col--revendedor"); }
+  if (sel.javy) { columns.push("Javy"); columnClasses.push("ad-price-col ad-price-col--javy"); }
   // La tabla en pantalla es la vista previa del PDF: si el informe lleva sabores,
   // tienen que verse antes de generarlo.
-  if (sel.sabores) columns.push("Sabores");
+  if (sel.sabores) { columns.push("Sabores"); columnClasses.push(""); }
   columns.push("Estado");
+  columnClasses.push("");
 
   const rows = products.map((p) => {
     const row = [p.name || "—", p.brand || "—", categoryLabel(p), p.presentation || "—"];
@@ -243,31 +224,34 @@ function repMedida(f, sel) {
     return row;
   });
 
-  // En el PDF el primero que se pidió es el precio destacado; los demás van
-  // rotulados en la línea de detalle, para que nadie confunda uno con otro.
-  const elegidos = [
-    (sel.venta || (!sel.revendedor && !sel.javy)) && { label: "Venta", value: (p) => peso(p.price) },
-    sel.revendedor && { label: "Revendedor", value: (p) => pesoOpt(p.reseller_price) },
-    sel.javy && { label: "Javy", value: (p) => pesoOpt(p.javy_price) },
+  // Un precio marcado = una columna propia en el catálogo, cada una con su
+  // color fijo, en vez del viejo esquema de "precio destacado + detalle".
+  const precios = [
+    sel.venta && { label: "Precio venta", colorKey: "venta", value: (p) => peso(p.price) },
+    sel.revendedor && { label: "Precio revendedor", colorKey: "revendedor", value: (p) => pesoOpt(p.reseller_price) },
+    sel.javy && { label: "Precio Javy", colorKey: "javy", value: (p) => pesoOpt(p.javy_price) },
   ].filter(Boolean);
-  const principal = (p) => elegidos[0].value(p);
-  const otros = (p) => elegidos.slice(1).map((e) => `${e.label} ${e.value(p)}`).join(" · ");
-  // Con un solo precio la línea de detalle queda libre para el estado, que es
-  // lo que importa cuando el informe mezcla disponibles y agotados.
-  const detalle = elegidos.length > 1 ? otros : (p) => (isAvailable(p) ? "" : "Agotado");
+  // Con "Solo disponibles" la columna de estado saldría siempre en blanco: no
+  // vale la pena el espacio. En el resto de los filtros sí puede haber agotados.
+  const columnasCatalogo = f.estado !== "disponibles"
+    ? [...precios, { label: "Estado", value: (p) => (isAvailable(p) ? "" : "Agotado") }]
+    : precios;
   const interno = sel.revendedor || sel.javy;
 
   return {
-    title: tituloMedida(f, sel),
+    title: "Lista de precios",
     columns,
+    columnClasses,
     rows,
     empty: "Ningún producto coincide con esos filtros. Afloja alguno y vuelve a generar.",
     // Este PDF se comparte por WhatsApp desde el celular: si lleva precios que
     // no son públicos, el propio documento tiene que decirlo.
     metaExtra: interno ? "Uso interno — contiene precios que no se publican en la tienda" : "",
     pdf: {
-      products: pdfCatalogItems(products, detalle, principal, sel.sabores),
-      detailLabel: elegidos.length > 1 ? "Otros precios" : "",
+      products: pdfCatalogItemsMulti(products, columnasCatalogo, sel.sabores),
+      priceColumns: columnasCatalogo.map(({ label, colorKey }) => ({ label, colorKey })),
+      // Con 2 o más precios la tabla se vuelve ancha: horizontal para que entren cómodas.
+      orientation: precios.length >= 2 ? "landscape" : "portrait",
     },
   };
 }
@@ -368,6 +352,22 @@ function pdfCatalogItems(products, detail = () => "", price = (p) => peso(p.pric
   }));
 }
 
+// Igual que pdfCatalogItems, pero para la lista de precios cuando hay más de
+// una columna propia (uno o más precios y, si corresponde, Estado): cada
+// producto lleva un valor por columna, en el mismo orden que `columnas`.
+function pdfCatalogItemsMulti(products, columnas, conSabores = false) {
+  return products.map((p) => ({
+    name: p.name || "—",
+    brand: p.brand || "",
+    presentation: p.presentation || "",
+    category: familyLabel(p),
+    subcategory: subfamilyLabel(p),
+    flavors: conSabores ? flavorsLabel(p) : "",
+    values: columnas.map((c) => c.value(p)),
+    image: p.image || "",
+  }));
+}
+
 function repStock() {
   const products = state.products.filter((p) => !isAvailable(p));
   const rows = products
@@ -439,7 +439,7 @@ function renderResult(result, rep) {
         <button class="ad-btn ad-btn--primary ad-btn--sm" type="button" data-rep-save>${ico("share-2")}Guardar / Compartir</button>
       </div>
     </div>
-    <div class="ad-rep-scroll">${buildTable(rep.columns, rep.rows, "ad-table")}</div>
+    <div class="ad-rep-scroll">${buildTable(rep.columns, rep.rows, "ad-table", rep.columnClasses)}</div>
   </div>`);
 
   result.querySelector("[data-rep-save]").addEventListener("click", async (e) => {
