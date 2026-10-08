@@ -556,10 +556,15 @@ body {
   line-height: 1.55;
 }
 
+/* Cuadrícula 2×2 del mismo ancho: los cuatro accesos (destacados, cotización,
+   catálogo y WhatsApp) quedan alineados en bloque en vez de una fila que se
+   partía a medias y una píldora suelta debajo. El color sigue marcando la
+   jerarquía: verde = acción principal, azul = secundaria, contorno = el resto. */
 .hero__button {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  width: min(100%, 520px);
   margin-top: clamp(22px, 3vw, 34px);
 }
 
@@ -567,54 +572,41 @@ body {
    .btn--secondary — los mismos que usa el resto del sitio (Agregar a
    cotización = verde --cta, acciones secundarias = azul --brand). Acá solo
    se ajusta el tamaño para que respiren más grande que un botón normal,
-   como corresponde al CTA más importante de la página. */
+   como corresponde al CTA más importante de la página. El padding lateral es
+   menor que el de .btn--lg para que "Productos destacados" entre en media
+   cuadrícula sin desbordarse. El width:100% le gana a la regla vieja
+   `.hero__slogan button { width: 250px }` (≤768px), que dejaba los <button>
+   más angostos que los <a> de la misma cuadrícula. */
 .hero__button .btn {
+  width: 100%;
   min-height: 48px;
-  min-width: 154px;
+  padding-inline: var(--sp-4);
   box-shadow: 0 14px 30px rgba(0, 0, 0, calc(0.28 * var(--shadow-a)));
 }
 
-/* Contacto directo con Javy: tarjeta-píldora con el logo de WhatsApp, no un
-   botón más. Va en su propia línea bajo los CTA para no competir
-   con ellos (el verde sólido ya es "Productos destacados"); el verde oficial
-   de WhatsApp queda solo en el círculo del logo. */
+/* Contacto directo con Javy: es un .btn--ghost más de la cuadrícula, con
+   fondo de tarjeta para que no se pierda sobre el glow del hero. El verde
+   oficial de WhatsApp queda solo en el círculo del logo (el verde sólido ya
+   es "Productos destacados") y en el borde al pasar el mouse. */
 .hero__wa {
   --wa-green: #25d366;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  margin-top: 14px;
-  padding: 7px 18px 7px 7px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: var(--surface-1);
-  color: var(--text);
-  font-weight: 700;
-  line-height: 1.2;
-  text-decoration: none;
+  --_bg: var(--surface-1);
   text-shadow: none;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, calc(0.22 * var(--shadow-a)));
-  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .hero__wa:hover {
-  border-color: color-mix(in srgb, var(--wa-green) 55%, transparent);
-  background: var(--surface-3);
-  transform: translateY(-1px);
+  --_bg: var(--surface-3);
+  --_bd: color-mix(in srgb, var(--wa-green) 55%, transparent);
 }
 
-.hero__wa:active { transform: translateY(0); }
-.hero__wa:focus-visible { outline: none; box-shadow: var(--ring); }
-
 /* Logo de WhatsApp en un círculo con su verde oficial: es lo que la gente
-   reconoce al instante, así que la tarjeta no necesita otro ícono. */
+   reconoce al instante, así que el botón no necesita otro ícono. */
 .hero__wa-badge {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: var(--wa-green);
   color: #fff;
@@ -622,15 +614,8 @@ body {
 
 .hero__wa-badge svg {
   display: block;
-  width: 24px;
-  height: 24px;
-}
-
-.hero__wa-label { padding-right: 4px; }
-
-@media (prefers-reduced-motion: reduce) {
-  .hero__wa { transition: none; }
-  .hero__wa:hover, .hero__wa:active { transform: none; }
+  width: 16px;
+  height: 16px;
 }
 
 /* Badge de prueba social ("N visitas"): mismo lenguaje que ya usan los chips
@@ -646,13 +631,11 @@ body {
 .hero__trust {
   display: flex;
   flex-wrap: wrap;
-  /* Centrados bajo el bloque de texto y botones, no pegados al margen
-     izquierdo: son el cierre del hero y leen mejor como una fila simetrica.
-     El resto de .hero__slogan sigue alineado a la izquierda en desktop, asi
-     que hace falta el align-self ademas del justify-content (uno centra la
-     caja dentro de la columna, el otro los chips dentro de la caja). */
-  align-self: center;
-  justify-content: center;
+  /* Alineados a la izquierda como el resto del bloque en desktop: centrados
+     bajo una cuadrícula alineada a la izquierda se leían desordenados. En
+     tablet/móvil (≤900px) se centran junto con todo el hero. */
+  align-self: flex-start;
+  justify-content: flex-start;
   gap: 8px 10px;
   margin-top: 18px;
   padding: 0;
@@ -703,8 +686,9 @@ body {
 
 .hero__visits {
   display: inline-flex;
-  /* Mismo criterio que .hero__trust: el badge cierra el hero centrado. */
-  align-self: center;
+  /* Mismo criterio que .hero__trust: a la izquierda en desktop, centrado en
+     tablet/móvil. */
+  align-self: flex-start;
   align-items: center;
   gap: 8px;
   margin-top: clamp(16px, 2.4vw, 22px);
@@ -772,8 +756,7 @@ body {
 body.page-transition .hero__slogan h1,
 body.page-transition .hero__slogan h2,
 body.page-transition .hero__copy,
-body.page-transition .hero__button,
-body.page-transition .hero__wa {
+body.page-transition .hero__button {
   opacity: 0;
   transform: translateY(20px);
   transition: opacity 0.6s ease, transform 0.6s ease;
@@ -782,8 +765,7 @@ body.page-transition .hero__wa {
 body.page-transition-in .hero__slogan h1,
 body.page-transition-in .hero__slogan h2,
 body.page-transition-in .hero__copy,
-body.page-transition-in .hero__button,
-body.page-transition-in .hero__wa {
+body.page-transition-in .hero__button {
   opacity: 1;
   transform: none;
 }
@@ -792,7 +774,6 @@ body.page-transition-in .hero__slogan h1,
 body.page-transition-in .hero__slogan h2 { transition-delay: 0.06s; }
 body.page-transition-in .hero__copy      { transition-delay: 0.16s; }
 body.page-transition-in .hero__button    { transition-delay: 0.26s; }
-body.page-transition-in .hero__wa        { transition-delay: 0.34s; }
 
 /* La imagen NO puede usar transition para entrar: su heroFloat anima transform
    en bucle y le ganaria al translateY de entrada (misma propiedad). Se resuelve
@@ -854,8 +835,15 @@ body.page-transition-in .hero__img {
     margin-inline: auto;
   }
 
-  .hero__button {
+  /* En una sola columna todo el hero va centrado: los chips y el badge de
+     visitas vuelven al centro con él. */
+  .hero__trust {
+    align-self: center;
     justify-content: center;
+  }
+
+  .hero__visits {
+    align-self: center;
   }
 
   .hero__img {
@@ -868,7 +856,10 @@ body.page-transition-in .hero__img {
     padding-inline: 14px;
   }
 
+  /* En el teléfono la cuadrícula pasa a una columna: cuatro botones a lo
+     ancho, fáciles de tocar con el pulgar. */
   .hero__button {
+    grid-template-columns: 1fr;
     width: 100%;
   }
 
@@ -904,7 +895,6 @@ body.page-transition-in .hero__img {
   body.page-transition .hero__slogan h2,
   body.page-transition .hero__copy,
   body.page-transition .hero__button,
-  body.page-transition .hero__wa,
   body.page-transition .hero__img,
   body.page-transition-in .hero__img {
     opacity: 1;
